@@ -1,0 +1,2 @@
+<web-view wx:if="{{url}}" src="{{url}}" binderror="onWebError"></web-view>
+<view wx:else style="padding:64rpx 40rpx;text-align:center;line-height:1.8;color:#555;">{{error || '正在打开平台…'}}</view>
