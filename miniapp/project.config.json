@@ -1,0 +1,20 @@
+{
+  "description": "贡献者工作台 · 微信入口（与网页共用 UI 和后端）",
+  "appid": "wx3deb771fbecf45c2",
+  "compileType": "miniprogram",
+  "libVersion": "3.4.10",
+  "setting": {
+    "urlCheck": true,
+    "es6": true,
+    "postcss": true,
+    "minified": true,
+    "enhance": true,
+    "minifyWXML": true
+  },
+  "projectname": "contributor-workbench",
+  "condition": {},
+  "editorSetting": {
+    "tabIndent": "insertSpaces",
+    "tabSize": 2
+  }
+}

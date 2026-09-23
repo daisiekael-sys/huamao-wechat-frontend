@@ -1,0 +1,11 @@
+{
+  "pages": [
+    "pages/webview/index"
+  ],
+  "window": {
+    "navigationBarTitleText": "贡献者工作台",
+    "navigationBarBackgroundColor": "#F97C2F",
+    "navigationBarTextStyle": "white"
+  },
+  "sitemapLocation": "sitemap.json"
+}

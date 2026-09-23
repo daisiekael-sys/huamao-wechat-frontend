@@ -1,0 +1,16 @@
+# Local runtime state and credentials
+.env
+cookies.txt
+certs/
+data/
+*.db
+*.db-*
+*.log
+
+# Dependencies and generated artifacts
+node_modules/
+_backup_*/
+交付物/
+
+# Local-only mini-program endpoint
+miniapp/config.js
