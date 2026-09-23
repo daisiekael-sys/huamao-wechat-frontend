@@ -2798,7 +2798,7 @@ Object.assign(window, { switchAuth, doAuth, quickLogin, doLogout, go, act, submi
   openProfile, profLogo, profLogoClear, saveProfile, closeModal, detailModal, refreshPage, hintShow ,
   renderSim, renderViz, saveDistSilent, parseTaskTable,
   /* VIP 固定工作流 · 个人空间与成果记录层 */
-  renderMySpace, spaceGo, spaceHint, pinOutput, openRec,
+  renderMySpace, spaceGo, spaceHint, pinOutput, openRec, discoveryIntent,
   feedbackModal, doFeedbackSave, dismissFeedback, fbStars,
   outputModal, outPickPhotos, outPickVideo, outDelMedia, outGpsToggle, doOutputSubmit,
   outputsModal, doOutputsConfirm,
@@ -4498,7 +4498,9 @@ async function finishWelcome(skip) {
   try {
     const d = await api('PUT','/api/me/onboarding',{ interests: skip ? (S.user.interests || []) : S.welcomeInterests, home_org_id: skip ? (S.user.home_org_id || null) : (S.welcomeHome || null) });
     S.user = d.user; S.discoveryTopic = undefined;
-    await landAfterLogin(); await handleCheckHash();
+    // 引导结束先到发现：让用户看见适合自己的机会；后续日常登录仍遵循默认社区。
+    S.spaceTab = 'discover';
+    await backToOrgs('discover'); await handleCheckHash();
   } catch(e) { toast('未能保存引导状态，请重试：'+e.message,'err'); }
   finally { S.savingWelcome = false; }
 }
@@ -4512,12 +4514,21 @@ async function discoveryHtml() {
   catch(e) { return `<p role="alert">${esc(e.message)}</p><button class="tab-btn" onclick="backToOrgs('discover')">重试</button>`; }
   S.discovery = d;
   if (S.discoveryTopic === undefined) S.discoveryTopic = S.user?.interests?.length ? '我的兴趣' : '';
-  return `<section class="discovery-hero"><p class="eyebrow">青年 · AI · 共创</p><h1>找到同路人，<br>一起把想法做出来。</h1><p>参加一场活动，认领一个任务。让每次参与留下成果，让每份付出有明确回报。</p><div class="discovery-top"><span>浏览无需入会 · 各社区独立运营</span>${S.user ? '<button class="tab-btn" onclick="spaceGo(\'orgs\')">回到我的社区</button>' : ''}</div></section>
+  return `<section class="discovery-hero"><h1>找到同路人，<br>一起把想法做出来。</h1><p>每一次浏览，都通向一件值得参与的事：先看活动与任务，再决定加入、认领或共建。</p><div class="discovery-intents" aria-label="我想做什么">
+      <button type="button" onclick="discoveryIntent('activities')"><b>参加一场活动</b><span>认识伙伴，获得真实参与经历</span></button>
+      <button type="button" onclick="discoveryIntent('tasks')"><b>认领一件任务</b><span>先看交付、验收与回报约定</span></button>
+      ${S.user ? `<button type="button" onclick="spaceGo('feed')"><b>看看我的成果</b><span>回看已确认的贡献与记录</span></button>` : `<button type="button" onclick="showView('auth')"><b>先建立我的记录</b><span>登录后保存你的参与与成果</span></button>`}
+    </div><div class="discovery-top"><span>浏览无需入会 · 公开任务可直接认领</span>${S.user ? '<button class="tab-btn" onclick="spaceGo(\'orgs\')">我的社区</button>' : ''}</div></section>
     <form class="discovery-search" onsubmit="event.preventDefault();S.discoveryQuery=this.elements.q.value;renderDiscoveryResults()"><input name="q" aria-label="搜索活动和任务" placeholder="搜索活动、任务或社区" value="${esc(S.discoveryQuery || '')}"><button class="cat-btn">搜索</button></form>
     <div class="interest-grid discovery-chips">${['',...(S.user?.interests?.length ? ['我的兴趣'] : []),...DISCOVERY_TOPICS].map(t=>`<button class="interest-chip" data-topic="${t}" aria-pressed="${S.discoveryTopic === t}" onclick="S.discoveryTopic='${t}';renderDiscoveryResults()">${t || '全部兴趣'}</button>`).join('')}</div>
     <div class="task-state-tabs"><button data-kind="activities" aria-pressed="${S.discoveryKind !== 'tasks'}" onclick="S.discoveryKind='activities';renderDiscoveryResults()">开放活动 · ${d.activities.length}</button><button data-kind="tasks" aria-pressed="${S.discoveryKind === 'tasks'}" onclick="S.discoveryKind='tasks';renderDiscoveryResults()">公开任务 · ${d.tasks.length}</button></div>
     <p class="text-xs text-gray-500 mb-3">按主题关键词筛选，可随时查看全部。${S.demoMode ? '当前为演示数据，不代表真实活动或回报承诺。' : ''}</p>
     <div id="discovery-results" aria-live="polite">${discoveryResults()}</div>`;
+}
+function discoveryIntent(kind) {
+  S.discoveryKind = kind;
+  renderDiscoveryResults();
+  $('discovery-results')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 function discoveryResults() {
   const kind = S.discoveryKind || 'activities';
