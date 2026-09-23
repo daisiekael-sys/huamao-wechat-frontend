@@ -298,6 +298,27 @@
   button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid #294c3e;outline-offset:3px}
   button:disabled{opacity:.5;cursor:not-allowed}
   @media(max-width:600px){.discovery-grid{grid-template-columns:1fr}.discovery-hero{padding:24px}.welcome-card{margin:0 auto;padding:20px}.welcome-mascot{width:110px;height:110px;margin:14px auto}.welcome-card h1{font-size:26px}}
+  #view-welcome{background:#f6f4ed;color:#294c3e;padding:32px 20px}
+  .welcome-card{max-width:960px;margin:0 auto;padding:32px 40px;background:transparent;border:0;border-radius:0}
+  .guide-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:44px}
+  .guide-header b{font-size:24px;letter-spacing:.04em}.guide-header b span{display:block;font-size:11px;letter-spacing:.18em;margin-top:4px}
+  .guide-header button{color:#526256;min-height:44px}
+  .guide-layout{display:grid;grid-template-columns:1fr 1fr;gap:44px;align-items:center}
+  .welcome-card h1{font-family:'STKaiti','KaiTi',serif;font-size:38px;line-height:1.5;font-weight:600;color:#234b3b;white-space:normal}
+  .welcome-copy{font-size:16px;line-height:1.9;max-width:34em;margin:22px 0;color:#526256}
+  .guide-features{font-size:12px;color:#526256;line-height:1.8}
+  .guide-scene{min-height:300px;padding:28px;background:#e6ebe1;border-radius:16px;animation:guide-enter .35s ease-out}
+  .guide-scene>span,.guide-scene small{font-size:12px;color:#526256}.guide-scene h2{font-size:22px;line-height:1.5;margin:14px 0}.guide-scene p{font-size:14px;line-height:1.8}
+  .guide-discover{position:relative;padding-top:24px;background:#e9e5d7}.guide-discover>img{width:66px;height:66px;object-fit:cover;border-radius:50%;float:right;margin-left:12px}
+  .guide-discover>div>span{font-size:12px}.guide-ticket{margin-top:26px;border-top:1px solid #c4c6b7;padding-top:18px}.guide-ticket strong{display:block;font-size:18px;margin:8px 0}
+  .guide-agreement dl{margin:20px 0;display:grid;grid-template-columns:80px 1fr;gap:16px 10px;font-size:14px}.guide-agreement dt{color:#526256}.guide-agreement dd{margin:0}.guide-agreement>p{border-top:1px solid #bac9b9;padding-top:14px;font-size:12px}
+  .guide-record ol{list-style:none;padding:0;margin:24px 0 0}.guide-record li{padding:12px 0 12px 22px;position:relative;border-top:1px solid #bac9b9}.guide-record li:before{content:'';position:absolute;left:0;top:20px;width:7px;height:7px;background:#52765e;border-radius:50%}.guide-record strong{font-size:14px}.guide-record li span{display:block;font-size:12px;margin-top:5px;color:#526256}
+  .guide-preferences{margin-top:30px;border-top:1px solid #d5d9cd;padding-top:22px}.guide-preferences h2{font-size:18px;font-weight:600}.guide-preferences p{font-size:13px;color:#526256;margin:8px 0 14px}.guide-preferences label{font-size:13px;margin-right:12px}.guide-preferences select{max-width:100%;min-height:44px;border:1px solid #b5bdb0;padding:8px;border-radius:8px;background:#fffdf8;color:#294c3e}.guide-preferences .interest-grid{margin-bottom:18px}.guide-preferences .interest-chip{min-height:44px}.guide-preferences .interest-chip[aria-pressed=true]{background:#294c3e;color:white;border-color:#294c3e}
+  .guide-footer{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:32px}.guide-progress{display:flex;align-items:center;gap:6px}.guide-progress>span{width:8px;height:8px;background:#bac3b6;border-radius:4px}.guide-progress>span.current{width:26px;background:#294c3e}.guide-progress small{margin-left:8px;color:#526256;font-size:12px}.welcome-actions{margin:0;gap:10px}.welcome-actions .cat-btn{min-width:132px;background:#294c3e;color:#fffdf8}.welcome-actions button:hover{filter:brightness(.94)}.guide-note{font-size:12px;color:#526256;margin-top:20px;text-align:right}
+  #view-welcome ::selection{background:#d3dec8;color:#173f2e}#guide-title:focus{outline:none}
+  @keyframes guide-enter{from{transform:translateY(8px)}to{transform:translateY(0)}}
+  @media(max-width:600px){#view-welcome{padding:20px 20px calc(24px + env(safe-area-inset-bottom))}.welcome-card{padding:0}.guide-header{margin-bottom:24px}.guide-header b{font-size:20px}.guide-layout{grid-template-columns:1fr;gap:22px}.welcome-card h1{font-size:30px}.welcome-copy{font-size:15px;margin:14px 0}.guide-scene{min-height:0;padding:22px}.guide-scene h2{font-size:20px}.guide-footer{margin-top:24px}.guide-note{text-align:left;line-height:1.6}.welcome-actions button{padding:12px 16px}.welcome-actions .cat-btn{min-width:108px}.guide-preferences select{width:100%;margin-top:8px}}
+  @media(prefers-reduced-motion:reduce){.guide-scene{animation:none}}
 </style>
 </head>
 <body class="min-h-screen">

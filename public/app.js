@@ -263,6 +263,7 @@ function toggleUserMenu() {
       <div class="text-[10px] text-gray-400">${S.org ? '当前在 ' + esc(S.org.name) : '个人空间'}</div>
     </div>
     <button class="w-full text-left text-sm px-3 py-2 rounded-lg hover:bg-gray-50" onclick="closeUserMenu();openProfile()">👤 我的资料 / 收款方式</button>
+    <button class="w-full text-left text-sm px-3 py-2 rounded-lg hover:bg-gray-50" onclick="closeUserMenu();showWelcome()">重新认识花猫 · 新手指南</button>
     ${S.org ? '<button class="w-full text-left text-sm px-3 py-2 rounded-lg hover:bg-gray-50" onclick="closeUserMenu();backToOrgs()">🏘 返回个人空间</button>' : ''}
     ${communityDemoAccounts().length ? '<div class="border-t border-gray-100 my-1"></div><div class="px-3 py-1 text-[10px] text-gray-400">🧪 本社区演示视角</div><p class="px-3 text-[10px] text-gray-400">切换到本社区的演示账号，体验对应权限。</p>' + communityDemoAccounts().map(a => `<button class="w-full text-left text-xs px-3 py-1.5 rounded-lg hover:bg-gray-50" onclick="switchCommunityDemo('${a[0]}')">${a[2]} · ${a[3]}</button>`).join('') : ''}
     <div class="border-t border-gray-100 my-1"></div>
@@ -4463,23 +4464,29 @@ async function landAfterLogin() {
   else await backToOrgs('discover');
 }
 function showWelcome(step = 0) {
+  if (step === 0) { S.welcomeInterests = [...(S.user.interests || [])]; S.welcomeHome = S.user.home_org_id || ''; }
   S.welcomeStep = step;
   S.welcomeInterests ||= [...(S.user.interests || [])];
   showView('welcome');
   const slides = [
-    ['遇见一起做事的人', '从 AI 实践到内容创作，从学习交流到真实项目。先找到感兴趣的事，再选择同行的社区。', '参加活动 → 认识伙伴 → 一起共创'],
-    ['你的付出，先说好回报', '公开任务无需入会。先看交付、验收和回报，再决定认领。积分兑换、固定报酬、项目分成，各有明确规则。', '认领任务 → 提交成果 → 验收与兑现'],
-    ['从你感兴趣的事开始', '任选标签，也可以直接看全部。兴趣影响发现页的初始筛选，不改变身份或加入任何社区。', '']
+    ['从一件喜欢的事，\n遇见一起做事的人。', '发现不同社区的活动与公开任务。先看看，再选择参与；每一次同行，都从你的兴趣开始。', '发现活动 · 浏览社区 · 认领公开任务'],
+    ['每一份付出，\n先有清楚的约定。', '做什么、怎样验收、有什么回报，认领前就能看清。提交成果后，由负责人审核确认，让贡献有据可查。', '认领任务 · 提交成果 · 查看确认记录'],
+    ['社区可以不同，\n成长始终属于你。', '已确认的成果留在个人空间。回看参与记录，整理自己的贡献，让下一次合作从看得见的经历开始。', '个人成果 · 参与记录 · 分类报表']
   ];
   const [title, text, flow] = slides[step];
+  const scenes = [
+    `<div class="guide-scene guide-discover"><img src="/mascot.jpg" alt="花猫社区猫咪"><div><span>一次相遇的开始</span><h2>一起，把想法做出来</h2><p>AI 实践 / 内容创作 / 活动共建</p></div><div class="guide-ticket"><span>活动示意</span><strong>周末共创工作坊</strong><p>带一个想法来，和伙伴一起动手。</p><small>先了解活动，再决定参加</small></div></div>`,
+    `<div class="guide-scene guide-agreement"><span>任务约定示意</span><h2>为一场活动，留下好故事。</h2><dl><dt>交付什么</dt><dd>活动图文记录一份</dd><dt>如何确认</dt><dd>主理人按约定审核成果</dd><dt>回报依据</dt><dd>认领前查看积分或报酬规则</dd></dl><p>具体回报以任务约定与审核结果为准。</p></div>`,
+    `<div class="guide-scene guide-record"><span>个人成果示意</span><h2>做过的事，成为你的名片。</h2><ol><li><strong>参与一场共创活动</strong><span>留下参与记录</span></li><li><strong>提交自己的作品</strong><span>经确认后进入个人成果</span></li><li><strong>带着经历继续探索</strong><span>在个人空间回看与整理</span></li></ol></div>`
+  ];
   $('welcome-body').innerHTML = `<section class="welcome-card">
-    <div class="discovery-top"><b>花猫 · 共创社区</b><button class="tab-btn" onclick="finishWelcome(true)">跳过引导</button></div>
-    <img class="welcome-mascot" src="/mascot.jpg" alt="花猫社区的猫咪形象">
-    <p class="eyebrow">${step + 1} / 3 · AI FOR MORE</p><h1>${title}</h1><p class="welcome-copy">${text}</p>
-    ${flow ? `<p class="welcome-flow">${flow}</p>` : `<div class="interest-grid">${DISCOVERY_TOPICS.map(t => `<button class="interest-chip" aria-pressed="${S.welcomeInterests.includes(t)}" onclick="toggleInterest('${t}')">${t}</button>`).join('')}</div>
-    <label class="welcome-copy" for="welcome-home">以后打开时</label><select id="welcome-home" onchange="S.welcomeHome=this.value"><option value="">发现全平台的活动与任务</option>${S.memberships.map(m => `<option value="${esc(m.org_id)}" ${S.welcomeHome === m.org_id ? 'selected' : ''}>回到 ${esc(m.name)}</option>`).join('')}</select>`}
-    <div class="welcome-actions">${step ? `<button class="tab-btn" onclick="showWelcome(${step-1})">上一步</button>` : ''}<button class="cat-btn" onclick="${step < 2 ? `showWelcome(${step+1})` : 'finishWelcome(false)'}">${step < 2 ? '下一步' : '开始探索'}</button></div>
-    <p class="text-xs text-gray-500">仅首次登录显示，随时可跳过。你可以在社区页修改默认入口。</p></section>`;
+    <header class="guide-header"><b>花猫<span>共创社区</span></b><button class="tab-btn" onclick="finishWelcome(true)">${S.user.onboarding_done ? '返回工作台' : '跳过引导'}</button></header>
+    <div class="guide-layout"><div class="guide-story"><h1 tabindex="-1" id="guide-title">${title.replace('\n','<br>')}</h1><p class="welcome-copy">${text}</p><p class="guide-features">${flow}</p></div>${scenes[step]}</div>
+    ${step === 2 ? `<div class="guide-preferences"><h2>先从你感兴趣的事开始</h2><p>可多选，也可以直接看全部；不会自动加入社区。</p><div class="interest-grid">${DISCOVERY_TOPICS.map(t => `<button class="interest-chip" aria-pressed="${S.welcomeInterests.includes(t)}" onclick="toggleInterest('${t}')">${t}</button>`).join('')}</div>
+    <label for="welcome-home">以后打开时</label><select id="welcome-home" onchange="S.welcomeHome=this.value"><option value="">发现全平台的活动与任务</option>${S.memberships.map(m => `<option value="${esc(m.org_id)}" ${S.welcomeHome === m.org_id ? 'selected' : ''}>回到 ${esc(m.name)}</option>`).join('')}</select></div>` : ''}
+    <footer class="guide-footer"><div class="guide-progress" aria-label="第 ${step + 1} 步，共 3 步">${slides.map((_,i)=>`<span class="${i===step?'current':''}"></span>`).join('')}<small>${step+1} / 3</small></div><div class="welcome-actions">${step ? `<button class="tab-btn" onclick="showWelcome(${step-1})">上一步</button>` : ''}<button class="cat-btn" onclick="${step < 2 ? `showWelcome(${step+1})` : 'finishWelcome(false)'}">${step < 2 ? '继续了解' : '开始探索'}</button></div></footer>
+    <p class="guide-note">完成或跳过后不再自动展示，可在头像菜单重看。</p></section>`;
+  $('guide-title').focus({ preventScroll: true });
 }
 function toggleInterest(t) {
   S.welcomeInterests = S.welcomeInterests.includes(t) ? S.welcomeInterests.filter(x => x !== t) : [...S.welcomeInterests,t];
@@ -4489,7 +4496,7 @@ async function finishWelcome(skip) {
   if (S.savingWelcome) return;
   S.savingWelcome = true;
   try {
-    const d = await api('PUT','/api/me/onboarding',{ interests: skip ? [] : S.welcomeInterests, home_org_id: skip ? null : (S.welcomeHome || null) });
+    const d = await api('PUT','/api/me/onboarding',{ interests: skip ? (S.user.interests || []) : S.welcomeInterests, home_org_id: skip ? (S.user.home_org_id || null) : (S.welcomeHome || null) });
     S.user = d.user; S.discoveryTopic = undefined;
     await landAfterLogin(); await handleCheckHash();
   } catch(e) { toast('未能保存引导状态，请重试：'+e.message,'err'); }
