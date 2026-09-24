@@ -400,7 +400,7 @@ async function followOrg(orgId, unfollow = false) {
 /** 创建组织三步向导：① 组织信息 ② 品牌外观（配套色卡/自定义/logo） ③ 积分与启动 */
 function openOrgWizard() {
   if (!S._wiz || S._wiz._done) {
-    S._wiz = { step: 1, name: '', slug: '', intro: '', keywords: '', baseLocation: '', baseLat: null, baseLng: null, paletteKey: 'jvshong', primary: '#F97C2F', brandName: '橘颂', logo: null, currency: '积分', template: true, ownerNick: S.user.display_name, demo: S.demoMode };
+    S._wiz = { step: 1, name: '', slug: '', intro: '', suitableFor: '', keywords: '', baseLocation: '', baseLat: null, baseLng: null, paletteKey: 'jvshong', primary: '#F97C2F', brandName: '橘颂', logo: null, currency: '积分', template: true, ownerNick: S.user.display_name, demo: S.demoMode };
   }
   S._wizStep = S._wiz.step || 1;
   S._wiz.pname = S._wiz.name || '你的组织';
@@ -420,7 +420,8 @@ function wizHtml() {
     <div class="space-y-3">
       <div><label class="text-xs text-gray-500">组织名称 *</label><input value="${esc(S._wiz.name)}" placeholder="如：花猫社区" oninput="S._wiz.name=this.value; S._wiz.pname=this.value"></div>
       <div><label class="text-xs text-gray-500">标识（URL 用，小写字母/数字/短横线）</label><input value="${esc(S._wiz.slug)}" placeholder="huamao" oninput="S._wiz.slug=this.value"></div>
-      <div><label class="text-xs text-gray-500">一句话介绍</label><input value="${esc(S._wiz.intro)}" placeholder="这个组织是做什么的" oninput="S._wiz.intro=this.value"></div>
+      <div><label class="text-xs text-gray-500">这个社区具体在做什么 *</label><textarea rows="3" placeholder="用事实说明：组织什么活动、协作解决什么问题、会产出什么" oninput="S._wiz.intro=this.value">${esc(S._wiz.intro)}</textarea></div>
+      <div><label class="text-xs text-gray-500">适合谁加入或关注 *</label><input value="${esc(S._wiz.suitableFor || '')}" placeholder="如：想把 AI 用进制造现场的青年研发者、学生与创业者" oninput="S._wiz.suitableFor=this.value"></div>
       <div><label class="text-xs text-gray-500">关键词（逗号分隔，供其他用户发现）</label><input value="${esc(S._wiz.keywords)}" placeholder="社区,协作" oninput="S._wiz.keywords=this.value"></div>
       <div><label class="text-xs text-gray-500">常驻城市 / 基地</label><div class="flex gap-2"><input value="${esc(S._wiz.baseLocation)}" placeholder="如：株洲·万丰湖（不填具体门牌）" oninput="S._wiz.baseLocation=this.value"><button type="button" class="tab-btn text-xs flex-shrink-0" onclick="baseGeoUse()">标记当前位置</button></div><p id="wiz-base-geo" class="text-[10px] text-gray-400 mt-1">用于附近推荐和活动地点默认值；单场活动可另改具体公园、楼栋或线上地点。</p></div>
     </div>`;
@@ -450,7 +451,7 @@ function wizHtml() {
 function wizGo(dir) {
   if (dir > 0 && S._wiz.step === 3) return createOrg();
   if (dir > 0 && S._wiz.step === 1) {
-    if (!S._wiz.name.trim()) return toast('请先填写组织名称', 'err');
+    if (!S._wiz.name.trim() || !S._wiz.intro.trim() || !S._wiz.suitableFor.trim()) return toast('请先说清社区在做什么、适合谁', 'err');
     if (!S._wiz.slug.trim()) S._wiz.slug = 'org-' + Math.random().toString(36).slice(2, 6);
   }
   S._wiz.step = Math.min(3, Math.max(1, S._wiz.step + dir));
@@ -463,7 +464,7 @@ async function createOrg() {
   const brand = bpExport('wiz');
   try {
     const { id } = await api('POST', '/api/orgs', {
-      name: w.name, slug: w.slug, intro: w.intro, keywords: w.keywords, base_location: w.baseLocation, base_lat: w.baseLat, base_lng: w.baseLng,
+      name: w.name, slug: w.slug, intro: w.intro, suitable_for: w.suitableFor, keywords: w.keywords, base_location: w.baseLocation, base_lat: w.baseLat, base_lng: w.baseLng,
       theme_color: brand.primary, currency_name: w.currency || '猫粮', logo_url: w.logo || '', brand,
       owner_nickname: (w.ownerNick || '').trim() || undefined, demo: S.demoMode && !!w.demo, with_tasks: !!w.template,
     });
@@ -828,12 +829,13 @@ async function openOrgPreview(orgId) {
       <div><h3 class="font-bold text-gray-800">${esc(o.name)}</h3>
       <p class="text-[11px] text-gray-400">${o.base_location ? '📍 ' + esc(o.base_location) + ' · ' : ''}${d.followers} 人关注 · ${d.members} 位共建成员 · 已举办 ${d.activity_count} 场</p></div>
     </div>
-    <p class="text-sm text-gray-600 mb-3">${esc(o.intro || '这个社区还没有介绍。')}</p>
+    <p class="text-sm text-gray-600 mb-2">${esc(o.intro || '这个社区还没有介绍。')}</p>
+    <p class="text-xs text-gray-500 mb-3"><b>适合谁：</b>${esc(o.suitable_for || '暂未说明')}</p>
     ${d.open_activities.length ? `<div class="text-xs font-semibold text-gray-500 mb-1.5">开放招募中的活动</div>
       <div class="space-y-1.5 mb-3 max-h-48 overflow-y-auto">${d.open_activities.map(a => `
         <div class="flex items-center justify-between bg-gray-50 rounded-xl px-3 py-2">
           <div class="min-w-0"><div class="text-sm text-gray-800 truncate">${esc(a.title)}</div>
-          <div class="text-[10px] text-gray-400">${TYPE_CN[a.activity_type] || ''} · ${dt(a.start_at)} · ${esc(a.location || o.base_location || '地点待公布')} · ${a.reg_count} 人已报名</div></div>
+          <div class="text-[10px] text-gray-400">${TYPE_CN[a.activity_type] || ''} · ${dt(a.start_at)} · ${esc(a.location || o.base_location || '地点待公布')} · ${a.reg_count} 人已报名</div><div class="text-[11px] text-gray-500 truncate mt-0.5">${esc(a.description)}</div></div>
           ${a.output_reg ? '<span class="badge bg-green-100 text-green-700 flex-shrink-0">🪙 有产出</span>' : ''}
         </div>`).join('')}</div>`
       : '<p class="text-xs text-gray-400 mb-3">暂无开放招募的活动。</p>'}
@@ -1943,18 +1945,26 @@ function teamCreate() {
       <input id="na-location" value="${esc(S.org.base_location || '')}" placeholder="活动地点（默认社区基地，可改为具体公园、楼栋或线上）">
       <input id="na-start" type="datetime-local" title="开始时间">
       <input id="na-end" type="datetime-local" title="结束时间（可选）">
-      <input id="na-desc" placeholder="活动简介" class="md:col-span-2">
+      <textarea id="na-desc" rows="3" placeholder="参与者会做什么 *：用动词写清楚，例如“分组拆解真实制造问题，完成一个可演示原型”" class="md:col-span-2"></textarea>
     </div>
   </div>
   <div class="cat-card rounded-2xl p-5 mb-4">
-    <h4 class="font-semibold text-gray-800 text-sm mb-3">② 报名设置</h4>
+    <h4 class="font-semibold text-gray-800 text-sm mb-1">② 参与者如何度过这场活动</h4>
+    <p class="text-[11px] text-gray-400 mb-3">开放招募时三项都必须填写；它们会直接展示给旁观者，不依赖活动标题猜意思。</p>
+    <div class="space-y-3 text-sm">
+      <div><label class="text-xs text-gray-500">关键流程 / 时段安排 *</label><textarea id="na-agenda" rows="4" placeholder="例如：14:00 签到与问题介绍\n14:30 分组实操\n16:30 展示与反馈"></textarea></div>
+      <div><label class="text-xs text-gray-500">参加前需要准备什么 *</label><textarea id="na-preparation" rows="2" placeholder="例如：带电脑；无需 AI 基础；现场提供材料"></textarea></div>
+    </div>
+  </div>
+  <div class="cat-card rounded-2xl p-5 mb-4">
+    <h4 class="font-semibold text-gray-800 text-sm mb-3">③ 报名设置</h4>
     <div class="grid md:grid-cols-2 gap-3 text-sm">
       <input id="na-capacity" type="number" value="0" placeholder="人数限制（0=不限，组织者不计入）">
       <input id="na-regdl" type="datetime-local" title="报名截止（可选）">
     </div>
   </div>
   <div class="cat-card rounded-2xl p-5 mb-4">
-    <h4 class="font-semibold text-gray-800 text-sm mb-1">③ 签到设置 <span class="text-xs text-gray-400 font-normal">决定成员到场如何确认</span></h4>
+    <h4 class="font-semibold text-gray-800 text-sm mb-1">④ 签到设置 <span class="text-xs text-gray-400 font-normal">决定成员到场如何确认</span></h4>
     <div class="text-[11px] text-gray-400 mb-3">
       <span class="hidden md:inline">先选签到方式（二选一，选定后成员端只呈现这一种），再选打卡时点：时间要求度低 → 退场打卡即可；开头要求高 → 到场扫码；需全程在场 → 到场+退场都打。现场扫码会自动生成一次性二维码；地缘打卡需设置打卡点与半径。</span>
       <span class="md:hidden flex items-center gap-2"><span>先选方式，再选打卡时点</span>${hintBtn('打卡时点怎么选', `
@@ -1992,7 +2002,7 @@ function teamCreate() {
     </div>
   </div>
   <div class="cat-card rounded-2xl p-5 mb-4">
-    <h4 class="font-semibold text-gray-800 text-sm mb-3">④ 激励</h4>
+    <h4 class="font-semibold text-gray-800 text-sm mb-3">⑤ 激励</h4>
     <div class="grid md:grid-cols-2 gap-3 text-sm">
       <div class="flex gap-2 items-center">
         <span class="text-xs text-gray-500 flex-shrink-0">有效参与得</span>
@@ -2002,7 +2012,7 @@ function teamCreate() {
     </div>
   </div>
   <div class="cat-card rounded-2xl p-5 mb-4">
-    <h4 class="font-semibold text-gray-800 text-sm mb-1">⑤ 成果与招募 <span class="text-xs text-gray-400 font-normal">目的性优先——不是所有活动都弹记录入口</span></h4>
+    <h4 class="font-semibold text-gray-800 text-sm mb-1">⑥ 成果与招募 <span class="text-xs text-gray-400 font-normal">目的性优先——不是所有活动都弹记录入口</span></h4>
     <div class="grid md:grid-cols-2 gap-3 text-sm">
       <div>
         <label class="text-xs text-gray-500 mb-1 block">活动性质</label>
@@ -2026,7 +2036,7 @@ function teamCreate() {
     </div>
   </div>
   <div class="cat-card rounded-2xl p-5">
-    <h4 class="font-semibold text-gray-800 text-sm mb-3">⑥ 发布</h4>
+    <h4 class="font-semibold text-gray-800 text-sm mb-3">⑦ 发布</h4>
     <button class="cat-btn w-full py-2.5 rounded-xl" onclick="createActivity()">发布活动（生成签到二维码）</button>
   </div>`;
 }
@@ -2084,7 +2094,7 @@ async function createActivity() {
   try {
     const mode = $('na-mode').value;
     await api('POST', `/api/orgs/${S.org.id}/activities`, {
-      title: $('na-title').value, location: $('na-location').value, description: $('na-desc').value,
+      title: $('na-title').value, location: $('na-location').value, description: $('na-desc').value, agenda: $('na-agenda').value, preparation: $('na-preparation').value,
       start_at: $('na-start').value ? new Date($('na-start').value).toISOString() : '',
       end_at: $('na-end').value ? new Date($('na-end').value).toISOString() : null,
       reg_deadline: $('na-regdl').value ? new Date($('na-regdl').value).toISOString() : null,
@@ -4577,7 +4587,7 @@ function renderDiscoveryResults() {
 function openDiscoveryActivity(id) {
   const a=S.discovery.activities.find(x=>x.id===id); if(!a)return;
   const member=S.memberships.some(m=>m.org_id===a.org_id);
-  openModal(`<h2 class="text-xl font-bold">${esc(a.title)}</h2><p class="text-sm my-3">${esc(a.org_name)} · ${dt(a.start_at)} · ${esc(a.location || a.base_location || '地点待公布')}</p><p class="welcome-copy">${esc(a.description)}</p><p class="text-sm my-3">报名只加入这场活动，不会自动成为该社区的成员或收到其日常通知。</p><button class="cat-btn px-4 py-2" onclick="registerDiscoveryActivity('${a.id}')">${!S.user ? '登录后报名' : '报名这场活动'}</button>${member ? `<button class="tab-btn ml-2" onclick="closeModal();enterOrg('${a.org_id}')">进入社区</button>` : ''}<button class="tab-btn ml-2" onclick="closeModal()">继续逛逛</button>`);
+  openModal(`<h2 class="text-xl font-bold">${esc(a.title)}</h2><p class="text-sm my-3">${esc(a.org_name)} · ${dt(a.start_at)} · ${esc(a.location || a.base_location || '地点待公布')}</p><dl class="task-agreement"><dt>这场活动会做什么</dt><dd>${esc(a.description || '主办方暂未补充')}</dd><dt>流程安排</dt><dd>${esc(a.agenda || '主办方暂未补充')}</dd><dt>参加前准备</dt><dd>${esc(a.preparation || '主办方暂未补充')}</dd></dl><p class="text-sm my-3">报名只加入这场活动，不会自动成为该社区的成员或收到其日常通知。</p><button class="cat-btn px-4 py-2" onclick="registerDiscoveryActivity('${a.id}')">${!S.user ? '登录后报名' : '报名这场活动'}</button>${member ? `<button class="tab-btn ml-2" onclick="closeModal();enterOrg('${a.org_id}')">进入社区</button>` : ''}<button class="tab-btn ml-2" onclick="closeModal()">继续逛逛</button>`);
 }
 async function registerDiscoveryActivity(id) {
   if (!S.user) { closeModal(); showView('auth'); return; }
