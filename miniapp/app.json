@@ -3,7 +3,7 @@
     "pages/webview/index"
   ],
   "window": {
-    "navigationBarTitleText": "贡献者工作台",
+    "navigationBarTitleText": "共创运营平台",
     "navigationBarBackgroundColor": "#F97C2F",
     "navigationBarTextStyle": "white"
   },

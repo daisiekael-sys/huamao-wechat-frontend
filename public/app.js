@@ -3592,7 +3592,7 @@ const SPACE_TABS = [['discover', '', '发现'], ['feed', '🪙', '成果'], ['jo
 async function renderMySpace() {
   const el = $('space-top');
   if (!el) return;
-  if (!S.user) { el.innerHTML = '<div class="discovery-top"><b>花猫 · 共创社区</b><button class="tab-btn" onclick="showView(&quot;auth&quot;)">登录 / 注册</button></div>' + await discoveryHtml(); return; }
+  if (!S.user) { el.innerHTML = '<div class="discovery-top"><b>共创运营平台</b><button class="tab-btn" onclick="showView(&quot;auth&quot;)">登录 / 注册</button></div>' + await discoveryHtml(); return; }
   el.innerHTML = '<div class="text-center text-gray-400 py-10 text-sm">加载我的空间…</div>';
   let d;
   try { d = await api('GET', '/api/me/space'); }
@@ -3628,7 +3628,7 @@ async function renderMySpace() {
   try { body = await spaceTabHtml(tab); }
   catch (e) { body = `<div class="cat-card rounded-2xl p-6 text-sm text-red-500">${esc(e.message)}</div>`; }
   el.innerHTML = `
-  ${tab === 'discover' ? `<header class="discovery-top"><b>花猫 · 共创社区</b><button class="tab-btn" onclick="toggleUserMenu()">${esc(S.user.display_name)} · 我的账户</button></header>` : `  <div class="cat-card rounded-2xl p-4 mb-4 flex items-center gap-4 flex-wrap cursor-pointer hover:shadow-md transition" onclick="openProfile()" title="编辑资料 · 收款方式 · 退出登录">
+  ${tab === 'discover' ? `<header class="discovery-top"><b>共创运营平台</b><button class="tab-btn" onclick="toggleUserMenu()">${esc(S.user.display_name)} · 我的账户</button></header>` : `  <div class="cat-card rounded-2xl p-4 mb-4 flex items-center gap-4 flex-wrap cursor-pointer hover:shadow-md transition" onclick="openProfile()" title="编辑资料 · 收款方式 · 退出登录">
     <div class="avatar w-14 h-14 text-lg flex-shrink-0 overflow-hidden" style="background:${S.user.avatar_url ? 'transparent' : S.user.avatar_color}">
       ${S.user.avatar_url ? `<img src="${esc(S.user.avatar_url)}" class="w-full h-full object-cover rounded-full">` : esc(S.user.display_name[0])}
     </div>
@@ -4604,7 +4604,7 @@ function showWelcome(step = 0) {
   ];
   const [title, text, flow] = slides[step];
   const scenes = [
-    `<div class="guide-scene guide-discover"><img src="/mascot.jpg" alt="花猫社区猫咪"><div><span>一次相遇的开始</span><h2>一起，把想法做出来</h2><p>AI 实践 / 内容创作 / 活动共建</p></div><div class="guide-ticket"><span>活动示意</span><strong>周末共创工作坊</strong><p>带一个想法来，和伙伴一起动手。</p><small>先了解活动，再决定参加</small></div></div>`,
+    `<div class="guide-scene guide-discover"><img src="/mascot.jpg" alt="共创平台引导插图"><div><span>一次相遇的开始</span><h2>一起，把想法做出来</h2><p>AI 实践 / 内容创作 / 活动共建</p></div><div class="guide-ticket"><span>活动示意</span><strong>周末共创工作坊</strong><p>带一个想法来，和伙伴一起动手。</p><small>先了解活动，再决定参加</small></div></div>`,
     `<div class="guide-scene guide-agreement"><span>任务约定示意</span><h2>为一场活动，留下好故事。</h2><dl><dt>交付什么</dt><dd>活动图文记录一份</dd><dt>如何确认</dt><dd>主理人按约定审核成果</dd><dt>回报依据</dt><dd>认领前查看积分或报酬规则</dd></dl><p>具体回报以任务约定与审核结果为准。</p></div>`,
     `<div class="guide-scene guide-record"><span>个人成果示意</span><h2>做过的事，成为你的名片。</h2><ol><li><strong>参与一场共创活动</strong><span>留下参与记录</span></li><li><strong>提交自己的作品</strong><span>经确认后进入个人成果</span></li><li><strong>带着经历继续探索</strong><span>在个人空间回看与整理</span></li></ol></div>`
   ];

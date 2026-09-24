@@ -5,6 +5,6 @@
 //   3. config.js 里的 h5Url 已替换为你的工作台 HTTPS 地址
 App({
   onLaunch() {
-    console.log('贡献者工作台微信入口启动');
+    console.log('共创运营平台微信入口启动');
   },
 });
