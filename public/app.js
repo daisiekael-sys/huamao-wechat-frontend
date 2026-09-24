@@ -263,6 +263,7 @@ function toggleUserMenu() {
       <div class="text-[10px] text-gray-400">${S.org ? '当前在 ' + esc(S.org.name) : '个人空间'}</div>
     </div>
     <button class="w-full text-left text-sm px-3 py-2 rounded-lg hover:bg-gray-50" onclick="closeUserMenu();openProfile()">👤 我的资料 / 个人主页</button>
+    <button class="w-full text-left text-sm px-3 py-2 rounded-lg hover:bg-gray-50" onclick="closeUserMenu();openIdeaEditor()">💡 发起一个想法 / 小队</button>
     <button class="w-full text-left text-sm px-3 py-2 rounded-lg hover:bg-gray-50" onclick="closeUserMenu();showWelcome()">重新认识花猫 · 新手指南</button>
     ${S.org ? '<button class="w-full text-left text-sm px-3 py-2 rounded-lg hover:bg-gray-50" onclick="closeUserMenu();backToOrgs()">🏘 返回个人空间</button>' : ''}
     ${communityDemoAccounts().length ? '<div class="border-t border-gray-100 my-1"></div><div class="px-3 py-1 text-[10px] text-gray-400">🧪 本社区演示视角</div><p class="px-3 text-[10px] text-gray-400">切换到本社区的演示账号，体验对应权限。</p>' + communityDemoAccounts().map(a => `<button class="w-full text-left text-xs px-3 py-1.5 rounded-lg hover:bg-gray-50" onclick="switchCommunityDemo('${a[0]}')">${a[2]} · ${a[3]}</button>`).join('') : ''}
@@ -353,6 +354,23 @@ async function openPublicProfile(userId) {
 async function followUserProfile(userId, unfollow) {
   try { await api(unfollow ? 'DELETE' : 'POST', `/api/users/${userId}/follow`); await openPublicProfile(userId); } catch (e) { toast(e.message, 'err'); }
 }
+function openIdeaEditor(x = {}) {
+  openModal(`<h3 class="font-bold text-gray-800 mb-1">${x.id ? '编辑想法 / 小队' : '从一个想法开始'}</h3><p class="text-xs text-gray-400 mb-4">先把想做的事讲清楚。关注和协作申请不会自动变成组织成员；需要正式治理时，再成立组织。</p><div class="space-y-3"><label>名称<input id="idea-title" maxlength="80" placeholder="例如：为制造业一线做一个 AI 共创实验" value="${esc(x.title || '')}"></label><label>它要解决什么问题<textarea id="idea-intro" rows="3" maxlength="800" placeholder="用直白的话说明：在做什么、对谁有用、为什么现在要做。">${esc(x.intro || '')}</textarea></label><label>当前进展 / 下一步<input id="idea-focus" maxlength="240" placeholder="例如：正在找 10 位一线工程师一起试用" value="${esc(x.focus || '')}"></label><label>正在寻找<textarea id="idea-need" rows="2" maxlength="240" placeholder="例如：场地、产品伙伴、首批体验者、资金……">${esc(x.need || '')}</textarea></label><label>大致所在地（可选）<input id="idea-place" maxlength="120" placeholder="例如：株洲 / 长沙" value="${esc(x.base_location || '')}"></label><div class="grid grid-cols-2 gap-2"><label>目前形态<select id="idea-stage"><option value="idea" ${x.stage !== 'team' ? 'selected' : ''}>一个想法</option><option value="team" ${x.stage === 'team' ? 'selected' : ''}>正在协作的小队</option></select></label><label>可见范围<select id="idea-public"><option value="public" ${x.visibility !== 'private' ? 'selected' : ''}>公开展示</option><option value="private" ${x.visibility === 'private' ? 'selected' : ''}>仅我可见</option></select></label></div><button class="cat-btn w-full py-2 rounded-xl" onclick="saveIdea('${x.id || ''}')">${x.id ? '保存主页' : '发布想法主页'}</button></div>`);
+}
+function ideaBody() { return { title: $('idea-title').value.trim(), intro: $('idea-intro').value.trim(), focus: $('idea-focus').value.trim(), need: $('idea-need').value.trim(), base_location: $('idea-place').value.trim(), stage: $('idea-stage').value, visibility: $('idea-public').value }; }
+async function saveIdea(id) { try { const r = await api(id ? 'PUT' : 'POST', id ? `/api/ideas/${id}` : '/api/ideas', ideaBody()); closeModal(); toast(id ? '想法主页已更新' : '想法主页已发布'); openIdea(id || r.id); } catch (e) { toast(e.message, 'err'); } }
+async function openIdeaEditorById(id) { try { const { idea } = await api('GET', `/api/ideas/${id}`); openIdeaEditor(idea); } catch (e) { toast(e.message, 'err'); } }
+async function openIdea(id) {
+  try { const { idea: x } = await api('GET', `/api/ideas/${id}`); const owner = S.user?.id === x.owner_user_id;
+    const action = owner ? `<button class="cat-btn px-3 py-2" onclick="openIdeaEditorById('${x.id}')">编辑</button><button class="tab-btn" onclick="ideaRequests('${x.id}')">协作申请</button>` : S.user ? `<button class="cat-btn px-3 py-2" onclick="followIdea('${x.id}',${x.followed ? 'true' : 'false'})">${x.followed ? '取消关注' : '关注这个想法'}</button><button class="tab-btn" onclick="requestIdeaCollab('${x.id}')">${x.request_status === 'pending' ? '申请处理中' : x.request_status === 'accepted' ? '已接受协作' : '申请协作'}</button>` : '<button class="cat-btn px-3 py-2" onclick="closeModal();showView(\'auth\')">登录后关注或协作</button>';
+    openModal(`<div class="flex items-start gap-3"><div class="avatar w-11 h-11" style="background:${x.owner_avatar_url ? 'transparent' : x.owner_avatar_color}">${x.owner_avatar_url ? `<img src="${esc(x.owner_avatar_url)}" class="w-full h-full rounded-full object-cover">` : esc(x.owner_name[0])}</div><div><p class="text-xs text-gray-400">${x.stage === 'team' ? '协作小队' : '一个想法'}${x.base_location ? ' · 📍 ' + esc(x.base_location) : ''}</p><h2 class="text-xl font-bold">${esc(x.title)}</h2><p class="text-xs text-gray-400">发起人：${esc(x.owner_name)} · ${x.followers} 人关注</p></div></div><p class="welcome-copy mt-4">${esc(x.intro)}</p>${x.focus || x.need ? `<dl class="task-agreement"><dt>正在推进</dt><dd>${esc(x.focus || '暂未填写')}</dd>${x.need ? `<dt>正在寻找</dt><dd>${esc(x.need)}</dd>` : ''}</dl>` : ''}<p class="text-[11px] text-gray-400 mt-3">关注只订阅公开动态；协作申请由发起人逐一处理，不会自动加入任何组织。</p><div class="flex gap-2 mt-4">${action}<button class="tab-btn" onclick="closeModal()">关闭</button></div>`);
+  } catch (e) { toast(e.message, 'err'); }
+}
+async function followIdea(id, unfollow) { try { await api(unfollow ? 'DELETE' : 'POST', `/api/ideas/${id}/follow`); openIdea(id); } catch (e) { toast(e.message, 'err'); } }
+function requestIdeaCollab(id) { openModal(`<h3 class="font-bold mb-2">申请一起推进</h3><p class="text-xs text-gray-400 mb-3">说明你愿意投入什么。提交后仍不会加入任何组织。</p><textarea id="idea-request-note" rows="3" maxlength="300" placeholder="例如：我在做一线调研，可以负责找首批体验者。"></textarea><button class="cat-btn w-full py-2 mt-3" onclick="sendIdeaCollab('${id}')">提交协作申请</button>`); }
+async function sendIdeaCollab(id) { try { await api('POST', `/api/ideas/${id}/collab-requests`, { note: $('idea-request-note').value.trim() }); toast('已提交，等待发起人处理'); openIdea(id); } catch (e) { toast(e.message, 'err'); } }
+async function ideaRequests(id) { try { const { requests } = await api('GET', `/api/ideas/${id}/collab-requests`); openModal(`<h3 class="font-bold mb-1">协作申请</h3><p class="text-xs text-gray-400 mb-3">接受协作不等于加入组织；正式成员关系应在组织成立后另行确认。</p><div class="space-y-2">${requests.map(r => `<div class="bg-gray-50 rounded-xl p-3"><b>${esc(r.display_name)}</b><p class="text-sm mt-1">${esc(r.note || '未填写说明')}</p><p class="text-[11px] text-gray-400 mt-1">${({ pending: '待处理', accepted: '已接受协作', rejected: '已婉拒' })[r.status]}</p>${r.status === 'pending' ? `<button class="cat-btn text-xs px-2 py-1 mt-2" onclick="decideIdeaCollab('${id}','${r.user_id}','accepted')">接受协作</button><button class="tab-btn text-xs ml-2" onclick="decideIdeaCollab('${id}','${r.user_id}','rejected')">婉拒</button>` : ''}</div>`).join('') || '<p class="text-sm text-gray-400">暂无协作申请</p>'}</div><button class="tab-btn mt-4" onclick="openIdea('${id}')">返回主页</button>`); } catch (e) { toast(e.message, 'err'); } }
+async function decideIdeaCollab(id, userId, status) { try { await api('POST', `/api/ideas/${id}/collab-requests/${userId}/decide`, { status }); ideaRequests(id); } catch (e) { toast(e.message, 'err'); } }
 async function copyProfileLink() {
   try { await navigator.clipboard.writeText(`${location.origin}/?profile=${S.user.id}`); toast('个人主页链接已复制'); } catch { toast('浏览器未授权复制，请手动复制地址栏链接', 'err'); }
 }
@@ -2840,7 +2858,7 @@ Object.assign(window, { switchAuth, doAuth, quickLogin, doLogout, go, act, submi
   calNav, calPick, geoCheck, qrCheckModal, doQCheck, qrModal, doQRotate, naModeToggle, naGeoUse, naGeoSearch, naGeoPick,
   claimThenSubmit, claimPlazaTask, tagPicker, tagAssign, tagCreate, tagDel, tpStart, tpEnd, markPay, exportPayCsv, undoBrand,
   tabDragStart, tabDrop, openLayoutModal, layToggle, layMove, layDrop, layReset,
-  openProfile, profLogo, profLogoClear, saveProfile, openPublicProfile, followUserProfile, copyProfileLink, closeModal, detailModal, refreshPage, hintShow ,
+  openProfile, profLogo, profLogoClear, saveProfile, openPublicProfile, followUserProfile, copyProfileLink, openIdeaEditor, saveIdea, openIdea, openIdeaEditorById, followIdea, requestIdeaCollab, sendIdeaCollab, ideaRequests, decideIdeaCollab, closeModal, detailModal, refreshPage, hintShow ,
   renderSim, renderViz, saveDistSilent, parseTaskTable,
   /* VIP 固定工作流 · 个人空间与成果记录层 */
   renderMySpace, spaceGo, spaceHint, pinOutput, openRec, discoveryIntent, useNearby, registerDiscoveryActivity,
@@ -4612,7 +4630,7 @@ async function setHomeOrg(id) {
 }
 async function discoveryHtml() {
   let d;
-  try { d = await api('GET','/api/discovery'); }
+  try { const data = await Promise.all([api('GET','/api/discovery'), api('GET','/api/ideas')]); d = data[0]; d.ideas = data[1].ideas; }
   catch(e) { return `<p role="alert">${esc(e.message)}</p><button class="tab-btn" onclick="backToOrgs('discover')">重试</button>`; }
   S.discovery = d;
   if (S.discoveryTopic === undefined) S.discoveryTopic = S.user?.interests?.length ? '我的兴趣' : '';
@@ -4620,11 +4638,12 @@ async function discoveryHtml() {
       <button type="button" onclick="discoveryIntent('activities')"><b>参加一场活动</b><span>认识伙伴，获得真实参与经历</span></button>
       <button type="button" onclick="discoveryIntent('tasks')"><b>认领一件任务</b><span>先看交付、验收与回报约定</span></button>
       ${S.user ? `<button type="button" onclick="spaceGo('feed')"><b>看看我的成果</b><span>回看已确认的贡献与记录</span></button>` : `<button type="button" onclick="showView('auth')"><b>先建立我的记录</b><span>登录后保存你的参与与成果</span></button>`}
-    </div><div class="discovery-top"><span>活动可直接报名 · 公开任务可直接认领</span><span class="flex gap-2">${S.user ? '<button class="tab-btn" onclick="useNearby()">附近活动</button><button class="tab-btn" onclick="spaceGo(\'orgs\')">我的社区</button>' : ''}</span></div></section>
+    </div><div class="discovery-top"><span>活动可直接报名 · 公开任务可直接认领</span><span class="flex gap-2">${S.user ? '<button class="tab-btn" onclick="openIdeaEditor()">发起想法</button><button class="tab-btn" onclick="useNearby()">附近活动</button><button class="tab-btn" onclick="spaceGo(\'orgs\')">我的社区</button>' : ''}</span></div></section>
     <form class="discovery-search" onsubmit="event.preventDefault();S.discoveryQuery=this.elements.q.value;renderDiscoveryResults()"><input name="q" aria-label="搜索活动和任务" placeholder="搜索活动、任务或社区" value="${esc(S.discoveryQuery || '')}"><button class="cat-btn">搜索</button></form>
     <div class="interest-grid discovery-chips">${['',...(S.user?.interests?.length ? ['我的兴趣'] : []),...DISCOVERY_TOPICS].map(t=>`<button class="interest-chip" data-topic="${t}" aria-pressed="${S.discoveryTopic === t}" onclick="S.discoveryTopic='${t}';renderDiscoveryResults()">${t || '全部兴趣'}</button>`).join('')}</div>
     <div class="task-state-tabs"><button data-kind="activities" aria-pressed="${S.discoveryKind !== 'tasks'}" onclick="S.discoveryKind='activities';renderDiscoveryResults()">开放活动 · ${d.activities.length}</button><button data-kind="tasks" aria-pressed="${S.discoveryKind === 'tasks'}" onclick="S.discoveryKind='tasks';renderDiscoveryResults()">公开任务 · ${d.tasks.length}</button></div>
     <p class="text-xs text-gray-500 mb-3">按主题关键词筛选，可随时查看全部。${S.demoMode ? '当前为演示数据，不代表真实活动或回报承诺。' : ''}</p>
+    ${(d.ideas || []).length ? `<section class="mb-5"><div class="flex justify-between items-center mb-2"><h2 class="font-bold">正在生长的想法与小队</h2><span class="text-xs text-gray-400">先认识，再决定是否协作</span></div><div class="discovery-grid">${d.ideas.slice(0, 6).map(x => `<article class="opportunity-card cursor-pointer" onclick="openIdea('${x.id}')"><p class="eyebrow">${x.stage === 'team' ? '协作小队' : '一个想法'}${x.base_location ? ' · 📍 ' + esc(x.base_location) : ''}</p><h2>${esc(x.title)}</h2><p class="opportunity-description">${esc(x.intro)}</p><p class="text-xs text-gray-500">${esc(x.owner_name)} 发起 · ${x.followers} 人关注${x.need ? ' · 正在寻找伙伴' : ''}</p><button class="tab-btn mt-2" onclick="event.stopPropagation();openIdea('${x.id}')">看看这件事</button></article>`).join('')}</div></section>` : ''}
     <div id="discovery-results" aria-live="polite">${discoveryResults()}</div>`;
 }
 function discoveryIntent(kind) {
