@@ -112,7 +112,7 @@ function closeDrawer() {
       S.user = me.user; S.memberships = me.memberships || [];
     }
   } catch { S.user = null; }
-  if (!S.user) { await backToOrgs('discover'); return; }
+  if (!S.user) { await backToOrgs('discover'); const publicProfile = new URLSearchParams(location.search).get('profile'); if (publicProfile) await openPublicProfile(publicProfile); return; }
   await landAfterLogin();
   subscribeEvents();
   if (!$('view-welcome').classList.contains('active')) await handleCheckHash(); // 手机扫现场二维码直达
@@ -262,7 +262,7 @@ function toggleUserMenu() {
       <div class="text-sm font-bold text-gray-800">${esc((S.org && S.myNick) || S.user.display_name)}</div>
       <div class="text-[10px] text-gray-400">${S.org ? '当前在 ' + esc(S.org.name) : '个人空间'}</div>
     </div>
-    <button class="w-full text-left text-sm px-3 py-2 rounded-lg hover:bg-gray-50" onclick="closeUserMenu();openProfile()">👤 我的资料 / 收款方式</button>
+    <button class="w-full text-left text-sm px-3 py-2 rounded-lg hover:bg-gray-50" onclick="closeUserMenu();openProfile()">👤 我的资料 / 个人主页</button>
     <button class="w-full text-left text-sm px-3 py-2 rounded-lg hover:bg-gray-50" onclick="closeUserMenu();showWelcome()">重新认识花猫 · 新手指南</button>
     ${S.org ? '<button class="w-full text-left text-sm px-3 py-2 rounded-lg hover:bg-gray-50" onclick="closeUserMenu();backToOrgs()">🏘 返回个人空间</button>' : ''}
     ${communityDemoAccounts().length ? '<div class="border-t border-gray-100 my-1"></div><div class="px-3 py-1 text-[10px] text-gray-400">🧪 本社区演示视角</div><p class="px-3 text-[10px] text-gray-400">切换到本社区的演示账号，体验对应权限。</p>' + communityDemoAccounts().map(a => `<button class="w-full text-left text-xs px-3 py-1.5 rounded-lg hover:bg-gray-50" onclick="switchCommunityDemo('${a[0]}')">${a[2]} · ${a[3]}</button>`).join('') : ''}
@@ -286,6 +286,14 @@ function openProfile() {
   '</div>' +
   '<div class="mb-3"><label class="text-xs text-gray-500">全局昵称（所有组织可见）</label>' +
     '<input id="pf-name" value="' + esc(S.user.display_name) + '"></div>' +
+  '<div class="border-t border-gray-100 pt-3 mt-3 mb-3 space-y-2">' +
+    '<div class="flex items-center justify-between"><p class="text-xs text-gray-500 font-semibold">🌱 公开个人主页</p><span><button type="button" class="text-xs underline c-primary" onclick="openPublicProfile(\'' + S.user.id + '\')">预览</button><button type="button" class="text-xs underline c-primary ml-2" onclick="copyProfileLink()">复制链接</button></span></div>' +
+    '<textarea id="pf-bio" rows="2" placeholder="我正在把什么想法做出来？（只公开你主动填写的内容）">' + esc(S.user.profile_bio || '') + '</textarea>' +
+    '<input id="pf-focus" placeholder="近期在做什么，如：筹备一场制造业 AI 工作坊" value="' + esc(S.user.profile_focus || '') + '">' +
+    '<textarea id="pf-need" rows="2" placeholder="正在寻找什么帮助？如：产品伙伴、场地、第一批体验者">' + esc(S.user.profile_need || '') + '</textarea>' +
+    '<label class="text-xs text-gray-600 flex items-center gap-2"><input id="pf-public" type="checkbox" ' + (S.user.profile_public !== false ? 'checked' : '') + '>允许他人查看并关注我的主页</label>' +
+    '<p class="text-[10px] text-gray-400">不会公开你的收益、成员关系、支付信息或未主动展示的参与记录。</p>' +
+  '</div>' +
   '<div class="border-t border-gray-100 pt-3 mt-3 mb-3">' +
     '<p class="text-xs text-gray-500 font-semibold mb-2">💳 收款方式（分利打款用）</p>' +
     '<div class="grid grid-cols-2 gap-2 mb-1.5">' +
@@ -322,7 +330,7 @@ function profLogo(input) {
 function profLogoClear() { S._profLogo = ''; openProfile(); }
 async function saveProfile() {
   try {
-    const body = { display_name: $('pf-name').value.trim(), avatar_url: S._profLogo };
+    const body = { display_name: $('pf-name').value.trim(), avatar_url: S._profLogo, profile_bio: $('pf-bio').value, profile_focus: $('pf-focus').value, profile_need: $('pf-need').value, profile_public: $('pf-public').checked };
     if ($('pf-pay-name') && $('pf-pay-name').value.trim()) body.pay_real_name = $('pf-pay-name').value.trim();
     const acct = $('pf-pay-account') ? $('pf-pay-account').value.trim() : '';
     if (acct) body.pay_account = acct; // 留空 = 不修改收款账号
@@ -332,6 +340,20 @@ async function saveProfile() {
     toast('资料已保存');
     closeModal(); renderShell();
   } catch (e) { toast(e.message, 'err'); }
+}
+async function openPublicProfile(userId) {
+  try {
+    const { profile: p } = await api('GET', `/api/users/${userId}/profile`);
+    const self = S.user?.id === p.id;
+    const blocks = p.blocks.length ? `<div class="mt-4"><h4 class="text-xs font-semibold text-gray-500 mb-2">公开的成果与方向</h4><div class="space-y-2">${p.blocks.map(b => `<p class="text-sm bg-gray-50 rounded-xl p-3">${esc(b.content)}</p>`).join('')}</div></div>` : '';
+    openModal(`<div class="flex items-center gap-3"><div class="avatar w-12 h-12" style="background:${p.avatar_url ? 'transparent' : p.avatar_color}">${p.avatar_url ? `<img src="${esc(p.avatar_url)}" class="w-full h-full rounded-full object-cover">` : esc(p.display_name[0])}</div><div><h2 class="text-xl font-bold">${esc(p.display_name)}</h2><p class="text-xs text-gray-400">${p.followers} 人关注 · ${p.confirmed_count} 条已确认成果</p></div></div><p class="welcome-copy mt-4">${esc(p.bio || '这个人还没有填写介绍。')}</p>${p.focus ? `<dl class="task-agreement"><dt>近期在做</dt><dd>${esc(p.focus)}</dd>${p.need ? `<dt>正在寻找</dt><dd>${esc(p.need)}</dd>` : ''}</dl>` : ''}${blocks}<div class="mt-4 flex gap-2">${self ? '<button class="cat-btn px-4 py-2" onclick="closeModal();openProfile()">编辑我的主页</button>' : S.user ? `<button class="cat-btn px-4 py-2" onclick="followUserProfile('${p.id}',${p.followed ? 'true' : 'false'})">${p.followed ? '取消关注' : '关注这个人'}</button>` : '<button class="cat-btn px-4 py-2" onclick="closeModal();showView(\'auth\')">登录后关注</button>'}<button class="tab-btn" onclick="closeModal()">关闭</button></div>`);
+  } catch (e) { toast(e.message, 'err'); }
+}
+async function followUserProfile(userId, unfollow) {
+  try { await api(unfollow ? 'DELETE' : 'POST', `/api/users/${userId}/follow`); await openPublicProfile(userId); } catch (e) { toast(e.message, 'err'); }
+}
+async function copyProfileLink() {
+  try { await navigator.clipboard.writeText(`${location.origin}/?profile=${S.user.id}`); toast('个人主页链接已复制'); } catch { toast('浏览器未授权复制，请手动复制地址栏链接', 'err'); }
 }
 
 /* ---------- 组织 ---------- */
@@ -2817,7 +2839,7 @@ Object.assign(window, { switchAuth, doAuth, quickLogin, doLogout, go, act, submi
   calNav, calPick, geoCheck, qrCheckModal, doQCheck, qrModal, doQRotate, naModeToggle, naGeoUse, naGeoSearch, naGeoPick,
   claimThenSubmit, claimPlazaTask, tagPicker, tagAssign, tagCreate, tagDel, tpStart, tpEnd, markPay, exportPayCsv, undoBrand,
   tabDragStart, tabDrop, openLayoutModal, layToggle, layMove, layDrop, layReset,
-  openProfile, profLogo, profLogoClear, saveProfile, closeModal, detailModal, refreshPage, hintShow ,
+  openProfile, profLogo, profLogoClear, saveProfile, openPublicProfile, followUserProfile, copyProfileLink, closeModal, detailModal, refreshPage, hintShow ,
   renderSim, renderViz, saveDistSilent, parseTaskTable,
   /* VIP 固定工作流 · 个人空间与成果记录层 */
   renderMySpace, spaceGo, spaceHint, pinOutput, openRec, discoveryIntent, useNearby, registerDiscoveryActivity,
@@ -4519,6 +4541,8 @@ const TOPIC_WORDS = {
 function audienceName(a) { return ({public:'公开 · 无需入会', members:'社区成员', internal:'内部协作'})[a] || '社区成员'; }
 async function landAfterLogin() {
   S.org = null;
+  const publicProfile = new URLSearchParams(location.search).get('profile');
+  if (publicProfile) { await backToOrgs('discover'); await openPublicProfile(publicProfile); return; }
   if (!S.user.onboarding_done) {
     try {
       const first = await api('POST', '/api/me/onboarding/start', {});
