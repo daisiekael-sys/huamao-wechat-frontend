@@ -364,10 +364,10 @@ async function renderOrgs() {
         <div class="font-semibold text-sm text-gray-800 truncate">${esc(o.name)}</div>
       </div>
       <p class="text-[11px] text-gray-400 line-clamp-1 mb-1.5" title="${esc(o.intro)}">${esc(o.intro)}</p>
-      <div class="text-[10px] text-gray-400 mb-2">${o.members} 成员 · ${o.open_activities} 个活动</div>
+      <div class="text-[10px] text-gray-400 mb-2">${o.followers} 人关注 · ${o.members} 位共建成员 · ${o.open_activities} 个活动</div>
       <div class="flex gap-1.5">
         <button class="tab-btn text-[11px] px-2 py-1" onclick="openOrgPreview('${o.id}')">看看</button>
-        <button class="cat-secondary text-[11px] px-2 py-1 rounded-lg" onclick="openJoinCard('${o.id}')">加入</button>
+        <button class="cat-secondary text-[11px] px-2 py-1 rounded-lg" onclick="followOrg('${o.id}')">关注</button>
       </div>
     </div>`).join('') || '<p class="text-sm text-gray-400 col-span-4">暂无其他组织</p>';
 }
@@ -377,25 +377,25 @@ function roleName(r) {
   return (labels && labels[r]) || ({ owner: '顶层管理者', internal: '内部成员', participant: '大众参与者' }[r] || r);
 }
 
-/** 加入卡片：加入时自报组织内昵称与分工（老板只做调整） */
+/** 共建申请：关注与活动报名都不触发；获批后才进入成员名册。 */
 function openJoinCard(orgId) {
-  openModal(`<h3 class="font-bold text-gray-800 mb-1">成为共建成员</h3>
-  <p class="text-xs text-gray-400 mb-4">你会以个人账号进入长期共建名册；活动报名和公开任务不需要经过这里。此入口不授予内部运营或管理权限。</p>
+  openModal(`<h3 class="font-bold text-gray-800 mb-1">申请成为共建成员</h3>
+  <p class="text-xs text-gray-400 mb-4">关注或报名活动不需要申请。此申请由主理人审核；批准后才进入长期共建成员名册，仍不授予内部运营或管理权限。</p>
   <div class="space-y-3">
-    <div><label class="text-xs text-gray-500">组织内昵称</label><input id="jc-nick" maxlength="24" placeholder="如：摄影·小北"></div>
-    <div><label class="text-xs text-gray-500">自报分工</label><input id="jc-tag" maxlength="12" placeholder="如：摄影 / 内容 / 主理人"></div>
-    <button class="cat-btn w-full py-2 rounded-xl" onclick="doJoinCard('${orgId}')">确认成为共建成员</button>
+    <div><label class="text-xs text-gray-500">申请说明（可选）</label><textarea id="jc-note" maxlength="300" rows="3" placeholder="例如：想长期参与内容共建或活动执行"></textarea></div>
+    <button class="cat-btn w-full py-2 rounded-xl" onclick="doJoinCard('${orgId}')">提交共建申请</button>
   </div>`);
-  setTimeout(() => $('jc-nick')?.focus(), 100);
+  setTimeout(() => $('jc-note')?.focus(), 100);
 }
 async function doJoinCard(orgId) {
   try {
-    await api('POST', `/api/orgs/${orgId}/join`, {
-      nickname: $('jc-nick').value.trim(), role_tag: $('jc-tag').value.trim(),
-    });
-    closeModal(); toast('已加入共建成员名册；内部权限仍由主理人授予');
-    location.reload();
+    await api('POST', `/api/orgs/${orgId}/join-applications`, { note: $('jc-note').value.trim() });
+    closeModal(); toast('共建申请已提交；关注与活动报名不受影响');
   } catch (e) { toast(e.message, 'err'); }
+}
+async function followOrg(orgId, unfollow = false) {
+  try { await api(unfollow ? 'DELETE' : 'POST', `/api/orgs/${orgId}/follow`); toast(unfollow ? '已取消关注' : '已关注，可在发现页继续看活动'); await showExplore(); }
+  catch (e) { toast(e.message, 'err'); }
 }
 /** 创建组织三步向导：① 组织信息 ② 品牌外观（配套色卡/自定义/logo） ③ 积分与启动 */
 function openOrgWizard() {
@@ -826,7 +826,7 @@ async function openOrgPreview(orgId) {
         ${orgBadge(o)}
       </span>
       <div><h3 class="font-bold text-gray-800">${esc(o.name)}</h3>
-      <p class="text-[11px] text-gray-400">${o.base_location ? '📍 ' + esc(o.base_location) + ' · ' : ''}已举办 ${d.activity_count} 场活动 · ${d.role ? '你已加入' : '预览模式 · 不会留存'}</p></div>
+      <p class="text-[11px] text-gray-400">${o.base_location ? '📍 ' + esc(o.base_location) + ' · ' : ''}${d.followers} 人关注 · ${d.members} 位共建成员 · 已举办 ${d.activity_count} 场</p></div>
     </div>
     <p class="text-sm text-gray-600 mb-3">${esc(o.intro || '这个社区还没有介绍。')}</p>
     ${d.open_activities.length ? `<div class="text-xs font-semibold text-gray-500 mb-1.5">开放招募中的活动</div>
@@ -837,10 +837,10 @@ async function openOrgPreview(orgId) {
           ${a.output_reg ? '<span class="badge bg-green-100 text-green-700 flex-shrink-0">🪙 有产出</span>' : ''}
         </div>`).join('')}</div>`
       : '<p class="text-xs text-gray-400 mb-3">暂无开放招募的活动。</p>'}
-    <p class="text-[11px] text-gray-400 mb-3">预览只是看一眼：不加入的话，这里不会在你侧栏留存，也不会收到这个社区的任何推送。</p>
+    <p class="text-[11px] text-gray-400 mb-3">关注只接收该社区公开动态；报名只关联一场活动；两者都不会进入共建成员名册。</p>
     ${d.role
       ? `<button class="cat-btn w-full py-2 rounded-xl text-sm" onclick="closeModal();enterOrg('${orgId}')">进入该社区</button>`
-      : `<button class="cat-btn w-full py-2 rounded-xl text-sm" onclick="closeModal();openJoinCard('${orgId}')">成为共建成员</button>`}`);
+      : `<div class="flex gap-2"><button class="cat-btn flex-1 py-2 rounded-xl text-sm" onclick="followOrg('${orgId}',${d.followed ? 'true' : 'false'});closeModal()">${d.followed ? '取消关注' : '关注社区'}</button><button class="tab-btn flex-1 py-2 rounded-xl text-sm" onclick="closeModal();openJoinCard('${orgId}')">${d.application === 'pending' ? '共建申请处理中' : '申请共建'}</button></div>`}`);
 }
 
 /* ---------- 发现社区（Discord 式探索：搜索 + 关键词标签 + 大卡预览） ---------- */
@@ -881,11 +881,11 @@ function exploreFilter() {
         <span class="relative inline-flex">${av}${orgBadge(o)}</span>
         <div class="font-bold text-gray-800 mt-1.5">${esc(o.name)}</div>
         <p class="text-xs text-gray-500 line-clamp-2 min-h-[32px] mt-0.5">${esc(o.intro)}</p>
-        <div class="text-[11px] text-gray-400 mt-2">${o.base_location ? '📍 ' + esc(o.base_location) + ' · ' : ''}已举办 ${o.activity_count} 场 · ${o.members} 位共建成员</div>
+        <div class="text-[11px] text-gray-400 mt-2">${o.base_location ? '📍 ' + esc(o.base_location) + ' · ' : ''}${o.followers} 人关注 · ${o.members} 位共建成员 · 已举办 ${o.activity_count} 场</div>
         ${o.next_activity_title ? `<div class="text-[11px] text-gray-500 mt-1 truncate">最近：${esc(o.next_activity_title)} · ${dt(o.next_activity_at)}${o.next_activity_location ? ' · ' + esc(o.next_activity_location) : ''}</div>` : '<div class="text-[11px] text-gray-400 mt-1">暂无公开活动</div>'}
         <div class="flex gap-1.5 mt-3">
           <button class="tab-btn text-xs px-3 py-1.5" onclick="event.stopPropagation();openOrgPreview('${o.id}')">看看</button>
-          <button class="cat-secondary text-xs px-3 py-1.5 rounded-lg" onclick="event.stopPropagation();openJoinCard('${o.id}')">成为共建成员</button>
+          <button class="cat-secondary text-xs px-3 py-1.5 rounded-lg" onclick="event.stopPropagation();followOrg('${o.id}')">关注</button>
         </div>
       </div>
     </div>`;
@@ -2799,7 +2799,7 @@ async function exportPayCsv(distId) {
 
 /* 暴露到全局（内联事件） */
 Object.assign(window, { switchAuth, doAuth, quickLogin, doLogout, go, act, submitModal, doSubmit, enterOrg, backToOrgs,
-  openJoinCard, doJoinCard, openOrgWizard, wizGo, createOrg, baseGeoUse, bpPick, bpSet, bpRGB, bpLogo, bpLogoClear, saveBrand,
+  openJoinCard, doJoinCard, followOrg, openOrgWizard, wizGo, createOrg, baseGeoUse, bpPick, bpSet, bpRGB, bpLogo, bpLogoClear, saveBrand,
   reviewModal, doReview, rosterModal, proxyCheck, flagModal, doFlag, finishModal, doFinish, orgReviewModal,
   createActivity, createTask, importTSV, importCSVFile, createProject, addProjTask, doAddProjTask, claimTask, submitProjTask, doSubmitProjTask,
   onWeightSlide, toggleWeightLock, balanceFill, saveDist, loadPreview, confirmDist, doConfirmDist, newDistModal, createDist, changeRole, rebuildAgg,
