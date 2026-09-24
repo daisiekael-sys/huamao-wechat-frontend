@@ -379,12 +379,12 @@ function roleName(r) {
 
 /** 加入卡片：加入时自报组织内昵称与分工（老板只做调整） */
 function openJoinCard(orgId) {
-  openModal(`<h3 class="font-bold text-gray-800 mb-1">加入组织</h3>
-  <p class="text-xs text-gray-400 mb-4">以你的个人账号参与本社区。此入口仅登记普通参与者，不授予内部成员或管理权限。</p>
+  openModal(`<h3 class="font-bold text-gray-800 mb-1">成为共建成员</h3>
+  <p class="text-xs text-gray-400 mb-4">你会以个人账号进入长期共建名册；活动报名和公开任务不需要经过这里。此入口不授予内部运营或管理权限。</p>
   <div class="space-y-3">
     <div><label class="text-xs text-gray-500">组织内昵称</label><input id="jc-nick" maxlength="24" placeholder="如：摄影·小北"></div>
     <div><label class="text-xs text-gray-500">自报分工</label><input id="jc-tag" maxlength="12" placeholder="如：摄影 / 内容 / 主理人"></div>
-    <button class="cat-btn w-full py-2 rounded-xl" onclick="doJoinCard('${orgId}')">确认加入</button>
+    <button class="cat-btn w-full py-2 rounded-xl" onclick="doJoinCard('${orgId}')">确认成为共建成员</button>
   </div>`);
   setTimeout(() => $('jc-nick')?.focus(), 100);
 }
@@ -393,14 +393,14 @@ async function doJoinCard(orgId) {
     await api('POST', `/api/orgs/${orgId}/join`, {
       nickname: $('jc-nick').value.trim(), role_tag: $('jc-tag').value.trim(),
     });
-    closeModal(); toast('已加入，可作为普通参与者参与社区');
+    closeModal(); toast('已加入共建成员名册；内部权限仍由主理人授予');
     location.reload();
   } catch (e) { toast(e.message, 'err'); }
 }
 /** 创建组织三步向导：① 组织信息 ② 品牌外观（配套色卡/自定义/logo） ③ 积分与启动 */
 function openOrgWizard() {
   if (!S._wiz || S._wiz._done) {
-    S._wiz = { step: 1, name: '', slug: '', intro: '', keywords: '', paletteKey: 'jvshong', primary: '#F97C2F', brandName: '橘颂', logo: null, currency: '积分', template: true, ownerNick: S.user.display_name, demo: S.demoMode };
+    S._wiz = { step: 1, name: '', slug: '', intro: '', keywords: '', baseLocation: '', baseLat: null, baseLng: null, paletteKey: 'jvshong', primary: '#F97C2F', brandName: '橘颂', logo: null, currency: '积分', template: true, ownerNick: S.user.display_name, demo: S.demoMode };
   }
   S._wizStep = S._wiz.step || 1;
   S._wiz.pname = S._wiz.name || '你的组织';
@@ -422,6 +422,7 @@ function wizHtml() {
       <div><label class="text-xs text-gray-500">标识（URL 用，小写字母/数字/短横线）</label><input value="${esc(S._wiz.slug)}" placeholder="huamao" oninput="S._wiz.slug=this.value"></div>
       <div><label class="text-xs text-gray-500">一句话介绍</label><input value="${esc(S._wiz.intro)}" placeholder="这个组织是做什么的" oninput="S._wiz.intro=this.value"></div>
       <div><label class="text-xs text-gray-500">关键词（逗号分隔，供其他用户发现）</label><input value="${esc(S._wiz.keywords)}" placeholder="社区,协作" oninput="S._wiz.keywords=this.value"></div>
+      <div><label class="text-xs text-gray-500">常驻城市 / 基地</label><div class="flex gap-2"><input value="${esc(S._wiz.baseLocation)}" placeholder="如：株洲·万丰湖（不填具体门牌）" oninput="S._wiz.baseLocation=this.value"><button type="button" class="tab-btn text-xs flex-shrink-0" onclick="baseGeoUse()">标记当前位置</button></div><p id="wiz-base-geo" class="text-[10px] text-gray-400 mt-1">用于附近推荐和活动地点默认值；单场活动可另改具体公园、楼栋或线上地点。</p></div>
     </div>`;
   else if (step === 2) body = `
     <p class="text-xs text-gray-400 mb-3">选一套<b class="text-gray-600">配套色卡</b>——每套都是背景/主色/强调的完整搭配，由平台审美把关；也保留完全自定义。</p>
@@ -462,7 +463,7 @@ async function createOrg() {
   const brand = bpExport('wiz');
   try {
     const { id } = await api('POST', '/api/orgs', {
-      name: w.name, slug: w.slug, intro: w.intro, keywords: w.keywords,
+      name: w.name, slug: w.slug, intro: w.intro, keywords: w.keywords, base_location: w.baseLocation, base_lat: w.baseLat, base_lng: w.baseLng,
       theme_color: brand.primary, currency_name: w.currency || '猫粮', logo_url: w.logo || '', brand,
       owner_nickname: (w.ownerNick || '').trim() || undefined, demo: S.demoMode && !!w.demo, with_tasks: !!w.template,
     });
@@ -473,6 +474,15 @@ async function createOrg() {
     S.memberships = me.memberships;
     await enterOrg(id);
   } catch (e) { toast(e.message, 'err'); }
+}
+
+function baseGeoUse() {
+  if (!navigator.geolocation) return toast('浏览器不支持定位，请只填写常驻城市/基地名称', 'err');
+  navigator.geolocation.getCurrentPosition(pos => {
+    S._wiz.baseLat = Number(pos.coords.latitude.toFixed(5)); S._wiz.baseLng = Number(pos.coords.longitude.toFixed(5));
+    const hint = $('wiz-base-geo'); if (hint) hint.textContent = '已标记基地坐标；对外仍只展示你填写的城市/基地名称。';
+    toast('基地坐标已标记');
+  }, () => toast('未能获取当前位置，仍可只填写常驻城市/基地名称', 'warn'), { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 });
 }
 
 /** 老板空间 · 组织品牌：随时调整外观，全员即时生效 */
@@ -816,21 +826,21 @@ async function openOrgPreview(orgId) {
         ${orgBadge(o)}
       </span>
       <div><h3 class="font-bold text-gray-800">${esc(o.name)}</h3>
-      <p class="text-[11px] text-gray-400">${d.members} 名成员 · 积分叫「${esc(o.currency_name)}」 · ${d.role ? '你已加入' : '预览模式 · 不会留存'}</p></div>
+      <p class="text-[11px] text-gray-400">${o.base_location ? '📍 ' + esc(o.base_location) + ' · ' : ''}已举办 ${d.activity_count} 场活动 · ${d.role ? '你已加入' : '预览模式 · 不会留存'}</p></div>
     </div>
     <p class="text-sm text-gray-600 mb-3">${esc(o.intro || '这个社区还没有介绍。')}</p>
     ${d.open_activities.length ? `<div class="text-xs font-semibold text-gray-500 mb-1.5">开放招募中的活动</div>
       <div class="space-y-1.5 mb-3 max-h-48 overflow-y-auto">${d.open_activities.map(a => `
         <div class="flex items-center justify-between bg-gray-50 rounded-xl px-3 py-2">
           <div class="min-w-0"><div class="text-sm text-gray-800 truncate">${esc(a.title)}</div>
-          <div class="text-[10px] text-gray-400">${TYPE_CN[a.activity_type] || ''} · ${dt(a.start_at)} · ${a.reg_count} 人已报名</div></div>
+          <div class="text-[10px] text-gray-400">${TYPE_CN[a.activity_type] || ''} · ${dt(a.start_at)} · ${esc(a.location || o.base_location || '地点待公布')} · ${a.reg_count} 人已报名</div></div>
           ${a.output_reg ? '<span class="badge bg-green-100 text-green-700 flex-shrink-0">🪙 有产出</span>' : ''}
         </div>`).join('')}</div>`
       : '<p class="text-xs text-gray-400 mb-3">暂无开放招募的活动。</p>'}
     <p class="text-[11px] text-gray-400 mb-3">预览只是看一眼：不加入的话，这里不会在你侧栏留存，也不会收到这个社区的任何推送。</p>
     ${d.role
       ? `<button class="cat-btn w-full py-2 rounded-xl text-sm" onclick="closeModal();enterOrg('${orgId}')">进入该社区</button>`
-      : `<button class="cat-btn w-full py-2 rounded-xl text-sm" onclick="closeModal();openJoinCard('${orgId}')">以个人身份参与</button>`}`);
+      : `<button class="cat-btn w-full py-2 rounded-xl text-sm" onclick="closeModal();openJoinCard('${orgId}')">成为共建成员</button>`}`);
 }
 
 /* ---------- 发现社区（Discord 式探索：搜索 + 关键词标签 + 大卡预览） ---------- */
@@ -871,10 +881,11 @@ function exploreFilter() {
         <span class="relative inline-flex">${av}${orgBadge(o)}</span>
         <div class="font-bold text-gray-800 mt-1.5">${esc(o.name)}</div>
         <p class="text-xs text-gray-500 line-clamp-2 min-h-[32px] mt-0.5">${esc(o.intro)}</p>
-        <div class="text-[11px] text-gray-400 mt-2">${o.members} 名成员 · ${o.open_activities} 个进行中活动</div>
+        <div class="text-[11px] text-gray-400 mt-2">${o.base_location ? '📍 ' + esc(o.base_location) + ' · ' : ''}已举办 ${o.activity_count} 场 · ${o.members} 位共建成员</div>
+        ${o.next_activity_title ? `<div class="text-[11px] text-gray-500 mt-1 truncate">最近：${esc(o.next_activity_title)} · ${dt(o.next_activity_at)}${o.next_activity_location ? ' · ' + esc(o.next_activity_location) : ''}</div>` : '<div class="text-[11px] text-gray-400 mt-1">暂无公开活动</div>'}
         <div class="flex gap-1.5 mt-3">
           <button class="tab-btn text-xs px-3 py-1.5" onclick="event.stopPropagation();openOrgPreview('${o.id}')">看看</button>
-          <button class="cat-secondary text-xs px-3 py-1.5 rounded-lg" onclick="event.stopPropagation();openJoinCard('${o.id}')">加入</button>
+          <button class="cat-secondary text-xs px-3 py-1.5 rounded-lg" onclick="event.stopPropagation();openJoinCard('${o.id}')">成为共建成员</button>
         </div>
       </div>
     </div>`;
@@ -1929,7 +1940,7 @@ function teamCreate() {
     <h4 class="font-semibold text-gray-800 text-sm mb-3">① 基本信息</h4>
     <div class="grid md:grid-cols-2 gap-3 text-sm">
       <input id="na-title" placeholder="活动名称 *">
-      <input id="na-location" placeholder="地点名称（如：良渚营地 / 线上）">
+      <input id="na-location" value="${esc(S.org.base_location || '')}" placeholder="活动地点（默认社区基地，可改为具体公园、楼栋或线上）">
       <input id="na-start" type="datetime-local" title="开始时间">
       <input id="na-end" type="datetime-local" title="结束时间（可选）">
       <input id="na-desc" placeholder="活动简介" class="md:col-span-2">
@@ -1976,7 +1987,7 @@ function teamCreate() {
           <button class="tab-btn flex-shrink-0" onclick="naGeoSearch()">搜索位置</button>
         </div>
         <div id="na-geo-results" class="mt-1.5 space-y-1"></div>
-        <input type="hidden" id="na-geo-lat"><input type="hidden" id="na-geo-lng">
+        <input type="hidden" id="na-geo-lat" value="${esc(S.org.base_lat ?? '')}"><input type="hidden" id="na-geo-lng" value="${esc(S.org.base_lng ?? '')}">
       </div>
     </div>
   </div>
@@ -2788,7 +2799,7 @@ async function exportPayCsv(distId) {
 
 /* 暴露到全局（内联事件） */
 Object.assign(window, { switchAuth, doAuth, quickLogin, doLogout, go, act, submitModal, doSubmit, enterOrg, backToOrgs,
-  openJoinCard, doJoinCard, openOrgWizard, wizGo, createOrg, bpPick, bpSet, bpRGB, bpLogo, bpLogoClear, saveBrand,
+  openJoinCard, doJoinCard, openOrgWizard, wizGo, createOrg, baseGeoUse, bpPick, bpSet, bpRGB, bpLogo, bpLogoClear, saveBrand,
   reviewModal, doReview, rosterModal, proxyCheck, flagModal, doFlag, finishModal, doFinish, orgReviewModal,
   createActivity, createTask, importTSV, importCSVFile, createProject, addProjTask, doAddProjTask, claimTask, submitProjTask, doSubmitProjTask,
   onWeightSlide, toggleWeightLock, balanceFill, saveDist, loadPreview, confirmDist, doConfirmDist, newDistModal, createDist, changeRole, rebuildAgg,
@@ -2798,7 +2809,7 @@ Object.assign(window, { switchAuth, doAuth, quickLogin, doLogout, go, act, submi
   openProfile, profLogo, profLogoClear, saveProfile, closeModal, detailModal, refreshPage, hintShow ,
   renderSim, renderViz, saveDistSilent, parseTaskTable,
   /* VIP 固定工作流 · 个人空间与成果记录层 */
-  renderMySpace, spaceGo, spaceHint, pinOutput, openRec, discoveryIntent,
+  renderMySpace, spaceGo, spaceHint, pinOutput, openRec, discoveryIntent, useNearby, registerDiscoveryActivity,
   feedbackModal, doFeedbackSave, dismissFeedback, fbStars,
   outputModal, outPickPhotos, outPickVideo, outDelMedia, outGpsToggle, doOutputSubmit,
   outputsModal, doOutputsConfirm,
@@ -4518,7 +4529,7 @@ async function discoveryHtml() {
       <button type="button" onclick="discoveryIntent('activities')"><b>参加一场活动</b><span>认识伙伴，获得真实参与经历</span></button>
       <button type="button" onclick="discoveryIntent('tasks')"><b>认领一件任务</b><span>先看交付、验收与回报约定</span></button>
       ${S.user ? `<button type="button" onclick="spaceGo('feed')"><b>看看我的成果</b><span>回看已确认的贡献与记录</span></button>` : `<button type="button" onclick="showView('auth')"><b>先建立我的记录</b><span>登录后保存你的参与与成果</span></button>`}
-    </div><div class="discovery-top"><span>浏览无需入会 · 公开任务可直接认领</span>${S.user ? '<button class="tab-btn" onclick="spaceGo(\'orgs\')">我的社区</button>' : ''}</div></section>
+    </div><div class="discovery-top"><span>活动可直接报名 · 公开任务可直接认领</span><span class="flex gap-2">${S.user ? '<button class="tab-btn" onclick="useNearby()">附近活动</button><button class="tab-btn" onclick="spaceGo(\'orgs\')">我的社区</button>' : ''}</span></div></section>
     <form class="discovery-search" onsubmit="event.preventDefault();S.discoveryQuery=this.elements.q.value;renderDiscoveryResults()"><input name="q" aria-label="搜索活动和任务" placeholder="搜索活动、任务或社区" value="${esc(S.discoveryQuery || '')}"><button class="cat-btn">搜索</button></form>
     <div class="interest-grid discovery-chips">${['',...(S.user?.interests?.length ? ['我的兴趣'] : []),...DISCOVERY_TOPICS].map(t=>`<button class="interest-chip" data-topic="${t}" aria-pressed="${S.discoveryTopic === t}" onclick="S.discoveryTopic='${t}';renderDiscoveryResults()">${t || '全部兴趣'}</button>`).join('')}</div>
     <div class="task-state-tabs"><button data-kind="activities" aria-pressed="${S.discoveryKind !== 'tasks'}" onclick="S.discoveryKind='activities';renderDiscoveryResults()">开放活动 · ${d.activities.length}</button><button data-kind="tasks" aria-pressed="${S.discoveryKind === 'tasks'}" onclick="S.discoveryKind='tasks';renderDiscoveryResults()">公开任务 · ${d.tasks.length}</button></div>
@@ -4530,6 +4541,23 @@ function discoveryIntent(kind) {
   renderDiscoveryResults();
   $('discovery-results')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
+function useNearby() {
+  if (!navigator.geolocation) return toast('当前浏览器不支持定位，仍可按地点文字筛选', 'warn');
+  toast('正在按你附近的位置排序…', 'warn');
+  navigator.geolocation.getCurrentPosition(pos => {
+    S.nearbyGeo = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+    S.discoveryKind = 'activities'; renderDiscoveryResults();
+    $('discovery-results')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, () => toast('未获得定位授权；你的精确位置不会被保存', 'warn'), { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 });
+}
+function nearbyKm(a) {
+  if (!S.nearbyGeo) return null;
+  const lat = Number(a.geo_lat ?? a.base_lat), lng = Number(a.geo_lng ?? a.base_lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  const rad = Math.PI / 180, dLat = (lat - S.nearbyGeo.lat) * rad, dLng = (lng - S.nearbyGeo.lng) * rad;
+  const x = Math.sin(dLat / 2) ** 2 + Math.cos(S.nearbyGeo.lat * rad) * Math.cos(lat * rad) * Math.sin(dLng / 2) ** 2;
+  return Math.round(6371 * 2 * Math.asin(Math.sqrt(x)) * 10) / 10;
+}
 function discoveryResults() {
   const kind = S.discoveryKind || 'activities';
   const q = (S.discoveryQuery || '').trim().toLowerCase();
@@ -4537,9 +4565,9 @@ function discoveryResults() {
     const text = [a.title,a.name,a.description,a.org_name,a.topic,a.keywords].join(' ');
     const topics = S.discoveryTopic === '我的兴趣' ? S.user.interests : [S.discoveryTopic];
     return (!q || text.toLowerCase().includes(q)) && (!S.discoveryTopic || topics.some(t=>a.topic===t || TOPIC_WORDS[t]?.test(text)));
-  });
+  }).map(a => ({ ...a, nearby_km: kind === 'activities' ? nearbyKm(a) : null })).sort((a,b) => (a.nearby_km == null) - (b.nearby_km == null) || (a.nearby_km ?? 0) - (b.nearby_km ?? 0));
   return items.length ? `<div class="discovery-grid">${items.map(a => `<article class="opportunity-card"><p class="eyebrow">${esc(a.org_name)}</p><h2>${esc(a.title || a.name)}</h2><p class="opportunity-description">${esc(a.description)}</p>
-    ${kind === 'activities' ? `<p>${dt(a.start_at)} · ${esc(a.location || '地点待公布')}</p><button class="cat-btn" onclick="openDiscoveryActivity('${a.id}')">查看活动</button>` : `<p class="reward-line">${esc(({points:'积分兑换',cash:'固定报酬',share:'项目分成'})[a.reward_kind])}${a.points_max > 0 ? ' · '+a.points_min+'-'+a.points_max+' '+esc(a.currency_name) : ''}</p><p>${esc(a.reward_terms)}</p><p class="text-xs text-gray-500">${a.slots ? `剩余 ${Math.max(0,a.slots-a.claimed_count)} 个名额` : '不限名额'} · 无需加入社区</p><button class="cat-btn" onclick="openPublicTask('${a.id}')">查看付出与回报</button>`}</article>`).join('')}</div>` : `<div class="cat-card rounded-2xl p-6"><h2>这个方向暂时没有开放机会</h2><p class="text-sm text-gray-500 my-3">换个兴趣看看，或查看全部社区的机会。</p><button class="tab-btn" onclick="S.discoveryTopic='';S.discoveryQuery='';backToOrgs('discover')">查看全部</button></div>`;
+    ${kind === 'activities' ? `<p>${dt(a.start_at)} · ${esc(a.location || a.base_location || '地点待公布')}${a.nearby_km != null ? ' · 距你约 ' + a.nearby_km + ' km' : ''}</p><button class="cat-btn" onclick="openDiscoveryActivity('${a.id}')">查看活动</button>` : `<p class="reward-line">${esc(({points:'积分兑换',cash:'固定报酬',share:'项目分成'})[a.reward_kind])}${a.points_max > 0 ? ' · '+a.points_min+'-'+a.points_max+' '+esc(a.currency_name) : ''}</p><p>${esc(a.reward_terms)}</p><p class="text-xs text-gray-500">${a.slots ? `剩余 ${Math.max(0,a.slots-a.claimed_count)} 个名额` : '不限名额'} · 无需加入社区</p><button class="cat-btn" onclick="openPublicTask('${a.id}')">查看付出与回报</button>`}</article>`).join('')}</div>` : `<div class="cat-card rounded-2xl p-6"><h2>这个方向暂时没有开放机会</h2><p class="text-sm text-gray-500 my-3">换个兴趣看看，或查看全部社区的机会。</p><button class="tab-btn" onclick="S.discoveryTopic='';S.discoveryQuery='';backToOrgs('discover')">查看全部</button></div>`;
 }
 function renderDiscoveryResults() {
   document.querySelectorAll('[data-topic]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.topic===S.discoveryTopic)));
@@ -4549,7 +4577,12 @@ function renderDiscoveryResults() {
 function openDiscoveryActivity(id) {
   const a=S.discovery.activities.find(x=>x.id===id); if(!a)return;
   const member=S.memberships.some(m=>m.org_id===a.org_id);
-  openModal(`<h2 class="text-xl font-bold">${esc(a.title)}</h2><p class="text-sm my-3">${esc(a.org_name)} · ${dt(a.start_at)} · ${esc(a.location)}</p><p class="welcome-copy">${esc(a.description)}</p><p class="text-sm my-3">${member?'前往社区活动页报名。':'活动报名目前需加入主办社区；浏览不会自动加入。公开任务可直接认领。'}</p><button class="cat-btn px-4 py-2" onclick="closeModal();${!S.user?"showView('auth')":member?`enterOrg('${a.org_id}')`:`openJoinCard('${a.org_id}')`}">${!S.user?'登录后参与':member?'进入主办社区':'查看加入规则'}</button><button class="tab-btn ml-2" onclick="closeModal()">继续逛逛</button>`);
+  openModal(`<h2 class="text-xl font-bold">${esc(a.title)}</h2><p class="text-sm my-3">${esc(a.org_name)} · ${dt(a.start_at)} · ${esc(a.location || a.base_location || '地点待公布')}</p><p class="welcome-copy">${esc(a.description)}</p><p class="text-sm my-3">报名只加入这场活动，不会自动成为该社区的成员或收到其日常通知。</p><button class="cat-btn px-4 py-2" onclick="registerDiscoveryActivity('${a.id}')">${!S.user ? '登录后报名' : '报名这场活动'}</button>${member ? `<button class="tab-btn ml-2" onclick="closeModal();enterOrg('${a.org_id}')">进入社区</button>` : ''}<button class="tab-btn ml-2" onclick="closeModal()">继续逛逛</button>`);
+}
+async function registerDiscoveryActivity(id) {
+  if (!S.user) { closeModal(); showView('auth'); return; }
+  try { await api('POST', `/api/activities/${id}/register`); closeModal(); toast('报名成功：这不会让你自动加入社区'); await backToOrgs('discover'); }
+  catch (e) { toast(e.message, 'err'); }
 }
 async function publicWorkHtml() {
   const d=await api('GET','/api/me/public-tasks'); S.publicWork=d.tasks;
