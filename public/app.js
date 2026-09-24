@@ -352,6 +352,7 @@ async function renderOrgs() {
         <div class="text-[10px] text-gray-400">${roleName(m.role)}</div></div>
       </div>
       <div class="text-[10px] text-gray-400">${o.members} 成员 · ${o.open_activities} 个进行中活动</div>
+      ${m.can_invite ? `<button class="text-[10px] underline text-gray-400 mt-1" onclick="event.stopPropagation();memberInviteModal('${o.id}')">邀请成员</button>` : ''}
     </div>`;
   }).join('') || '<p class="text-sm text-gray-400">还没有加入任何组织</p>';
   if ($('all-orgs')) $('all-orgs').innerHTML = orgs.filter(o => !mine.has(o.id)).map(o => `
@@ -2812,7 +2813,7 @@ Object.assign(window, { switchAuth, doAuth, quickLogin, doLogout, go, act, submi
   openJoinCard, doJoinCard, followOrg, openOrgWizard, wizGo, createOrg, baseGeoUse, bpPick, bpSet, bpRGB, bpLogo, bpLogoClear, saveBrand,
   reviewModal, doReview, rosterModal, proxyCheck, flagModal, doFlag, finishModal, doFinish, orgReviewModal,
   createActivity, createTask, importTSV, importCSVFile, createProject, addProjTask, doAddProjTask, claimTask, submitProjTask, doSubmitProjTask,
-  onWeightSlide, toggleWeightLock, balanceFill, saveDist, loadPreview, confirmDist, doConfirmDist, newDistModal, createDist, changeRole, rebuildAgg,
+  onWeightSlide, toggleWeightLock, balanceFill, saveDist, loadPreview, confirmDist, doConfirmDist, newDistModal, createDist, changeRole, rebuildAgg, createOrgInvite, revokeOrgInvite, memberGovernance, memberInviteModal, createMemberInvite,
   calNav, calPick, geoCheck, qrCheckModal, doQCheck, qrModal, doQRotate, naModeToggle, naGeoUse, naGeoSearch, naGeoPick,
   claimThenSubmit, claimPlazaTask, tagPicker, tagAssign, tagCreate, tagDel, tpStart, tpEnd, markPay, exportPayCsv, undoBrand,
   tabDragStart, tabDrop, openLayoutModal, layToggle, layMove, layDrop, layReset,
@@ -3351,6 +3352,7 @@ function vizHtml(pools, regularPool, small = false, save = null) {
 
 async function bossMembers() {
   const view = S.sub.view || 'list';
+  if (view === 'migration') return bossMigration();
   const { members } = await api('GET', `/api/orgs/${S.org.id}/members`);
   let labels = {};
   try { labels = JSON.parse(S.org.role_labels || '{}'); } catch { labels = {}; }
@@ -3358,6 +3360,7 @@ async function bossMembers() {
   const sw = `<div class="flex items-center gap-2 mb-4">
     <button class="tab-btn ${view === 'list' ? 'active' : ''}" onclick="go('boss',{tab:'members',view:'list'})">列表</button>
     <button class="tab-btn ${view === 'tree' ? 'active' : ''}" onclick="go('boss',{tab:'members',view:'tree'})">组织架构图</button>
+    <button class="tab-btn" onclick="go('boss',{tab:'members',view:'migration'})">入驻与邀请</button>
     <span class="text-[10px] text-gray-300 self-center">按排行榜顺序排列</span>
   </div>`;
 
@@ -3395,7 +3398,7 @@ async function bossMembers() {
     const cards = members.map(m => `<div class="m-row mb-2 flex items-center gap-3">
       ${m.avatar_url ? `<img src="${esc(m.avatar_url)}" class="w-9 h-9 rounded-full object-cover flex-shrink-0">` : `<span class="avatar w-9 h-9 text-xs flex-shrink-0" style="background:${m.avatar_color}">${esc(m.display_name[0])}</span>`}
       <div class="min-w-0 flex-1">
-        <div class="flex items-center gap-2 flex-wrap"><span class="text-sm font-medium">${esc(m.display_name)}</span>${tagChip(m)}</div>
+        <div class="flex items-center gap-2 flex-wrap"><span class="text-sm font-medium">${esc(m.display_name)}</span>${tagChip(m)}<button class="text-[10px] text-gray-400 underline" onclick="memberGovernance('${m.user_id}')">治理详情</button></div>
         <div class="text-[11px] text-gray-400 mt-0.5">${fmt(m.total_points)} ${S.org.currency_name} · ${dOnly(m.created_at)}</div>
       </div>
       ${roleCell(m)}
@@ -3403,7 +3406,7 @@ async function bossMembers() {
     return sw + `<div>${cards}</div>` + tip;
   }
   const rows = members.map((m, i) => `<tr>
-    <td><span class="inline-flex items-center gap-2">${m.avatar_url ? `<img src="${esc(m.avatar_url)}" class="w-7 h-7 rounded-full object-cover">` : `<span class="avatar w-7 h-7 text-[10px]" style="background:${m.avatar_color}">${esc(m.display_name[0])}</span>`}${esc(m.display_name)}</span></td>
+    <td><span class="inline-flex items-center gap-2">${m.avatar_url ? `<img src="${esc(m.avatar_url)}" class="w-7 h-7 rounded-full object-cover">` : `<span class="avatar w-7 h-7 text-[10px]" style="background:${m.avatar_color}">${esc(m.display_name[0])}</span>`}${esc(m.display_name)}</span><button class="text-[10px] text-gray-400 underline ml-1" onclick="memberGovernance('${m.user_id}')">治理详情</button></td>
     <td>${tagChip(m)}</td>
     <td>${roleCell(m)}</td>
     <td class="font-bold c-primary">${fmt(m.total_points)}</td>
@@ -3412,6 +3415,49 @@ async function bossMembers() {
   return sw + `<div class="cat-card rounded-2xl p-2 overflow-x-auto"><table class="tbl">
   <thead><tr><th>成员</th><th>分工（自报 · 老板可调）</th><th>位阶</th><th>${S.org.currency_name}</th><th>排行</th><th>加入</th></tr></thead>
   <tbody>${rows}</tbody></table></div>` + tip;
+}
+async function bossMigration() {
+  const { invites } = await api('GET', `/api/orgs/${S.org.id}/invites`);
+  const active = invites.filter(i => !i.revoked_at && i.uses < i.max_uses && new Date(i.expires_at) > new Date());
+  const rows = invites.map(i => `<div class="border-b last:border-0 py-2.5 text-xs flex gap-2 items-start">
+    <div class="min-w-0 flex-1"><b>${esc(i.label)}</b> <span class="text-gray-400">${i.kind === 'migration' ? '迁移' : i.kind === 'seed' ? '核心成员' : '成员邀请'}</span>
+      <div class="text-gray-500 mt-1 break-all">${esc(i.code)} · ${i.uses}/${i.max_uses} 已认领 · ${dOnly(i.expires_at)} 到期${i.grant_invite_right ? ' · 认领者可再邀请' : ''}</div></div>
+    ${i.revoked_at ? '<span class="text-gray-400">已撤销</span>' : `<button class="tab-btn text-xs" onclick="revokeOrgInvite('${i.id}')">撤销</button>`}
+  </div>`).join('') || '<p class="text-sm text-gray-400">还没有邀请。先用“迁移首批成员”建立组织骨干。</p>';
+  return `<div class="flex items-center gap-2 mb-4"><button class="tab-btn" onclick="go('boss',{tab:'members',view:'list'})">成员列表</button><button class="tab-btn active">入驻与邀请</button></div>
+  <div class="cat-card rounded-2xl p-5 mb-4"><h3 class="font-bold text-gray-800">把已有组织搬进来</h3>
+    <p class="text-xs text-gray-500 mt-1 mb-4">先创建可撤销的认领邀请，再由成员自己确认加入；不会因一张名单被强制写入成员名册。</p>
+    <div class="grid md:grid-cols-2 gap-3 text-sm"><label>邀请用途<input id="oi-label" placeholder="如：2026 秋季首批成员"></label><label>入驻方式<select id="oi-kind"><option value="migration">迁移首批成员</option><option value="seed">核心成员</option><option value="member">普通成员邀请</option></select></label><label>认领后身份<select id="oi-role"><option value="participant">大众参与者</option><option value="internal">内部成员</option></select></label><label>可认领人数<input id="oi-max" type="number" min="1" max="1000" value="20"></label><label>有效天数<input id="oi-days" type="number" min="1" max="365" value="30"></label></div>
+    <label class="text-xs text-gray-600 flex items-center gap-2 mt-3"><input id="oi-right" type="checkbox">认领者也可邀请成员（建议只给可信骨干）</label>
+    <button class="cat-btn px-4 py-2 mt-4" onclick="createOrgInvite()">生成邀请</button></div>
+  <div class="cat-card rounded-2xl p-5"><div class="flex items-center justify-between"><h3 class="font-bold text-gray-800">邀请记录</h3><span class="text-xs text-gray-400">当前有效 ${active.length} 条</span></div><p class="text-[11px] text-gray-400 my-2">邀请码只在本治理页显示；成员公开名册与个人主页不展示邀请关系。</p>${rows}</div>`;
+}
+async function createOrgInvite() {
+  try {
+    const r = await api('POST', `/api/orgs/${S.org.id}/invites`, { label: $('oi-label').value, kind: $('oi-kind').value, role: $('oi-role').value, max_uses: Number($('oi-max').value), expires_in_days: Number($('oi-days').value), grant_invite_right: $('oi-right').checked });
+    openModal(`<h3 class="font-bold text-gray-800 mb-2">邀请已生成</h3><p class="text-sm text-gray-500 mb-3">只把这条链接发给应当进入组织的人；如需停止，随时在“邀请记录”撤销。</p><input readonly value="${location.origin}/?invite=${esc(r.code)}" onclick="this.select()"><p class="text-xs text-gray-400 mt-2">邀请码：${esc(r.code)} · ${r.max_uses} 个名额</p>`);
+    await go('boss', { tab: 'members', view: 'migration' }, true);
+  } catch (e) { toast(e.message, 'err'); }
+}
+function memberInviteModal(orgId) {
+  S._memberInviteOrg = orgId;
+  openModal(`<h3 class="font-bold text-gray-800 mb-2">邀请成员</h3><p class="text-sm text-gray-500 mb-3">你的邀请只授予普通成员身份，不会把管理权交出去；邀请关系只在组织治理时按人查看。</p><label>邀请说明<input id="mi-label" placeholder="如：一起做活动的伙伴"></label><label class="block mt-3">可认领人数<input id="mi-max" type="number" min="1" max="20" value="1"></label><button class="cat-btn px-4 py-2 mt-4" onclick="createMemberInvite()">生成邀请链接</button>`);
+}
+async function createMemberInvite() {
+  try {
+    const r = await api('POST', `/api/orgs/${S._memberInviteOrg}/invites`, { label: $('mi-label').value, max_uses: Number($('mi-max').value), expires_in_days: 30 });
+    openModal(`<h3 class="font-bold text-gray-800 mb-2">邀请已生成</h3><p class="text-sm text-gray-500 mb-3">只发给你愿意带进组织、一起做事的人；30 天内有效，可由组织负责人撤销。</p><input readonly value="${location.origin}/?invite=${esc(r.code)}" onclick="this.select()"><p class="text-xs text-gray-400 mt-2">${r.max_uses} 个名额</p>`);
+  } catch (e) { toast(e.message, 'err'); }
+}
+async function revokeOrgInvite(inviteId) {
+  try { await api('DELETE', `/api/orgs/${S.org.id}/invites/${inviteId}`); toast('邀请已撤销'); await go('boss', { tab: 'members', view: 'migration' }, true); } catch (e) { toast(e.message, 'err'); }
+}
+async function memberGovernance(userId) {
+  try {
+    const { member: m } = await api('GET', `/api/orgs/${S.org.id}/members/${userId}/governance`);
+    const source = m.entry_type === 'founder' ? '组织创建者' : m.entry_type === 'invite' ? '邀请码认领' : '自行加入';
+    openModal(`<h3 class="font-bold text-gray-800">成员治理详情</h3><p class="text-xs text-gray-400 mt-1 mb-4">仅 Owner 可见。用于处理具体问题，不在日常成员页公开。</p><dl class="task-agreement"><dt>入驻方式</dt><dd>${source}</dd><dt>直接邀请人</dt><dd>${esc(m.issuer_name || '无')}</dd><dt>最初邀请来源</dt><dd>${esc(m.root_issuer_name || m.issuer_name || '组织创建')}</dd><dt>邀请标签</dt><dd>${esc(m.invite_label || '—')}</dd><dt>审核/确认人</dt><dd>${esc(m.approved_by_name || '—')}</dd><dt>加入时间</dt><dd>${dOnly(m.created_at)}</dd><dt>邀请权限</dt><dd>${m.can_invite ? '可邀请成员' : '无'}</dd><dt>其发出邀请 / 已认领</dt><dd>${m.issued_invites} / ${m.claimed_invites}</dd></dl>`);
+  } catch (e) { toast(e.message, 'err'); }
 }
 function nodeHtml(m, depth, rl) {
   return `<div class="flex items-center gap-2 py-1.5">
@@ -4479,6 +4525,16 @@ async function landAfterLogin() {
       S.user = first.user;
       if (first.show) { showWelcome(); return; }
     } catch(e) { showView('auth'); toast('引导状态加载失败，请重新登录：' + e.message, 'err'); return; }
+  }
+  const invite = new URLSearchParams(location.search).get('invite');
+  if (invite) {
+    try {
+      const joined = await api('POST', `/api/invites/${encodeURIComponent(invite)}/claim`, {});
+      const cleanUrl = new URL(location.href); cleanUrl.searchParams.delete('invite'); history.replaceState(null, '', cleanUrl.pathname + cleanUrl.search + cleanUrl.hash);
+      const me = await api('GET', '/api/me'); S.memberships = me.memberships || [];
+      toast(joined.already ? '你已是该组织成员' : '已加入组织');
+      await enterOrg(joined.org_id || S.memberships.find(m => m.org_id)?.org_id); return;
+    } catch (e) { toast('入驻邀请未完成：' + e.message, 'err'); }
   }
   const target = new URLSearchParams(location.search).get('org') || S.user.home_org_id;
   if (target && S.memberships.some(m => m.org_id === target)) await enterOrg(target);
