@@ -2870,7 +2870,7 @@ Object.assign(window, { switchAuth, doAuth, quickLogin, doLogout, go, act, submi
   openProfile, profLogo, profLogoClear, saveProfile, openPublicProfile, followUserProfile, copyProfileLink, openIdeaEditor, saveIdea, openIdea, openIdeaEditorById, followIdea, requestIdeaCollab, sendIdeaCollab, ideaRequests, decideIdeaCollab, closeModal, detailModal, refreshPage, hintShow ,
   renderSim, renderViz, saveDistSilent, parseTaskTable,
   /* VIP 固定工作流 · 个人空间与成果记录层 */
-  renderMySpace, spaceGo, spaceHint, pinOutput, openRec, discoveryIntent, useNearby, registerDiscoveryActivity,
+  renderMySpace, spaceGo, spaceHint, pinOutput, openRec, discoveryIntent, useNearby, registerDiscoveryActivity, openGlobalItem, openGlobalLayout, moveGlobalLayout, saveGlobalLayout,
   feedbackModal, doFeedbackSave, dismissFeedback, fbStars,
   outputModal, outPickPhotos, outPickVideo, outDelMedia, outGpsToggle, doOutputSubmit,
   outputsModal, doOutputsConfirm,
@@ -4639,7 +4639,7 @@ async function setHomeOrg(id) {
 }
 async function discoveryHtml() {
   let d;
-  try { const data = await Promise.all([api('GET','/api/discovery'), api('GET','/api/ideas')]); d = data[0]; d.ideas = data[1].ideas; }
+  try { const data = await Promise.all([api('GET','/api/discovery'), api('GET','/api/ideas'), S.user ? api('GET','/api/me/global-layout') : Promise.resolve({ layout: ['activities','results','needs'] })]); d = data[0]; d.ideas = data[1].ideas; S.globalOrder = data[2].layout; }
   catch(e) { return `<p role="alert">${esc(e.message)}</p><button class="tab-btn" onclick="backToOrgs('discover')">重试</button>`; }
   S.discovery = d;
   if (S.discoveryTopic === undefined) S.discoveryTopic = S.user?.interests?.length ? '我的兴趣' : '';
@@ -4650,11 +4650,25 @@ async function discoveryHtml() {
     </div><div class="discovery-top"><span>活动可直接报名 · 公开任务可直接认领</span><span class="flex gap-2">${S.user ? '<button class="tab-btn" onclick="openIdeaEditor()">发起想法</button><button class="tab-btn" onclick="useNearby()">附近活动</button><button class="tab-btn" onclick="spaceGo(\'orgs\')">我的社区</button>' : ''}</span></div></section>
     <form class="discovery-search" onsubmit="event.preventDefault();S.discoveryQuery=this.elements.q.value;renderDiscoveryResults()"><input name="q" aria-label="搜索活动和任务" placeholder="搜索活动、任务或社区" value="${esc(S.discoveryQuery || '')}"><button class="cat-btn">搜索</button></form>
     <div class="interest-grid discovery-chips">${['',...(S.user?.interests?.length ? ['我的兴趣'] : []),...DISCOVERY_TOPICS].map(t=>`<button class="interest-chip" data-topic="${t}" aria-pressed="${S.discoveryTopic === t}" onclick="S.discoveryTopic='${t}';renderDiscoveryResults()">${t || '全部兴趣'}</button>`).join('')}</div>
+    ${globalFlowHtml(d)}
     <div class="task-state-tabs"><button data-kind="activities" aria-pressed="${S.discoveryKind !== 'tasks'}" onclick="S.discoveryKind='activities';renderDiscoveryResults()">开放活动 · ${d.activities.length}</button><button data-kind="tasks" aria-pressed="${S.discoveryKind === 'tasks'}" onclick="S.discoveryKind='tasks';renderDiscoveryResults()">公开任务 · ${d.tasks.length}</button></div>
     <p class="text-xs text-gray-500 mb-3">按主题关键词筛选，可随时查看全部。${S.demoMode ? '当前为演示数据，不代表真实活动或回报承诺。' : ''}</p>
     ${(d.ideas || []).length ? `<section class="mb-5"><div class="flex justify-between items-center mb-2"><h2 class="font-bold">正在生长的想法与小队</h2><span class="text-xs text-gray-400">先认识，再决定是否协作</span></div><div class="discovery-grid">${d.ideas.slice(0, 6).map(x => `<article class="opportunity-card cursor-pointer" onclick="openIdea('${x.id}')"><p class="eyebrow">${x.stage === 'team' ? '协作小队' : '一个想法'}${x.base_location ? ' · 📍 ' + esc(x.base_location) : ''}</p><h2>${esc(x.title)}</h2><p class="opportunity-description">${esc(x.intro)}</p><p class="text-xs text-gray-500">${esc(x.owner_name)} 发起 · ${x.followers} 人关注${x.need ? ' · 正在寻找伙伴' : ''}</p><button class="tab-btn mt-2" onclick="event.stopPropagation();openIdea('${x.id}')">看看这件事</button></article>`).join('')}</div></section>` : ''}
     <div id="discovery-results" aria-live="polite">${discoveryResults()}</div>`;
 }
+function globalFlowHtml(d) {
+  const defs = {
+    activities: { title: '可以参加的活动', sub: '不必先关注或加入，先看看这次会做什么。', items: d.activities.slice(0, 3), card: a => `<article class="opportunity-card"><p class="eyebrow">${esc(a.org_name)}${a.location ? ' · 📍 ' + esc(a.location) : ''}</p><h3>${esc(a.title)}</h3><p class="opportunity-description">${esc(a.description)}</p><p class="text-xs text-gray-500">${dt(a.start_at)}</p><button class="cat-btn mt-2" onclick="openDiscoveryActivity('${a.id}')">看活动详情</button></article>` },
+    results: { title: '已经做成的成果', sub: '先看真实进展，再判断值不值得关注。', items: d.results || [], card: r => `<article class="opportunity-card"><p class="eyebrow">${esc(r.org_name)} · 公开成果</p><h3>${esc(r.title)}</h3><p class="opportunity-description">${esc(r.summary || '组织已公开一项成果资料。')}</p><button class="tab-btn mt-2" onclick="openOrgPreview('${r.org_id}')">查看组织履历</button></article>` },
+    needs: { title: '正在寻找的帮助', sub: '需求不是口号；先说明我能做什么，再决定是否接住。', items: d.needs || [], card: n => `<article class="opportunity-card"><p class="eyebrow">${n.kind === 'task' ? '公开任务' : n.kind === 'idea' ? '想法 / 小队' : '组织需要'} · ${esc(n.source_name)}</p><h3>${esc(n.title)}</h3><p class="opportunity-description">${esc(n.description)}</p><button class="tab-btn mt-2" onclick="openGlobalItem('${n.kind}','${n.id}')">看看如何参与</button></article>` }
+  };
+  const order = [...new Set((S.globalOrder || ['activities','results','needs']).filter(k => defs[k]))];
+  return `<section class="mt-5 mb-5"><div class="flex justify-between items-center mb-2"><div><h2 class="font-bold">全局动态</h2><p class="text-xs text-gray-400">活动、成果与需要来自个人、想法/小队和组织</p></div>${S.user ? '<button class="tab-btn text-xs" onclick="openGlobalLayout()">调整顺序</button>' : ''}</div>${order.map(k => { const x=defs[k]; return `<section class="mb-5"><h3 class="font-semibold">${x.title}</h3><p class="text-xs text-gray-400 mb-2">${x.sub}</p>${x.items.length ? `<div class="discovery-grid">${x.items.slice(0,3).map(x.card).join('')}</div>` : '<p class="text-sm text-gray-400 bg-gray-50 rounded-xl p-3">暂时没有公开内容。</p>'}</section>`; }).join('')}</section>`;
+}
+async function openGlobalItem(kind, id) { if (kind === 'task') return openPublicTask(id); if (kind === 'idea') return openIdea(id); return openOrgPreview(id); }
+function openGlobalLayout() { const names={activities:'活动',results:'成果',needs:'需要'}; const arr=[...(S.globalOrder || ['activities','results','needs'])]; openModal(`<h3 class="font-bold mb-1">调整首页顺序</h3><p class="text-xs text-gray-400 mb-3">只影响你的全局首页；三类信息始终都在。</p><div id="global-layout-list">${arr.map((x,i)=>`<div class="flex justify-between items-center bg-gray-50 rounded-xl px-3 py-2 mb-2"><b>${names[x]}</b><span><button class="tab-btn text-xs" ${i===0?'disabled':''} onclick="moveGlobalLayout(${i},-1)">↑</button><button class="tab-btn text-xs ml-1" ${i===arr.length-1?'disabled':''} onclick="moveGlobalLayout(${i},1)">↓</button></span></div>`).join('')}</div><button class="cat-btn w-full py-2 mt-2" onclick="saveGlobalLayout()">保存顺序</button>`); }
+function moveGlobalLayout(i, d) { const a=[...S.globalOrder]; [a[i],a[i+d]]=[a[i+d],a[i]]; S.globalOrder=a; openGlobalLayout(); }
+async function saveGlobalLayout() { try { const r=await api('PUT','/api/me/global-layout',{layout:S.globalOrder}); S.globalOrder=r.layout; closeModal(); toast('首页顺序已保存'); renderMySpace(); } catch(e) { toast(e.message,'err'); } }
 function discoveryIntent(kind) {
   S.discoveryKind = kind;
   renderDiscoveryResults();
