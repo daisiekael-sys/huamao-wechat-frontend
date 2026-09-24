@@ -464,6 +464,9 @@ function wizHtml() {
       <div><label class="text-xs text-gray-500">标识（URL 用，小写字母/数字/短横线）</label><input value="${esc(S._wiz.slug)}" placeholder="huamao" oninput="S._wiz.slug=this.value"></div>
       <div><label class="text-xs text-gray-500">这个社区具体在做什么 *</label><textarea rows="3" placeholder="用事实说明：组织什么活动、协作解决什么问题、会产出什么" oninput="S._wiz.intro=this.value">${esc(S._wiz.intro)}</textarea></div>
       <div><label class="text-xs text-gray-500">适合谁加入或关注 *</label><input value="${esc(S._wiz.suitableFor || '')}" placeholder="如：想把 AI 用进制造现场的青年研发者、学生与创业者" oninput="S._wiz.suitableFor=this.value"></div>
+      <div><label class="text-xs text-gray-500">长期想解决什么问题（公开主页）</label><textarea rows="2" placeholder="不用口号，说明你想持续改变什么" oninput="S._wiz.mission=this.value">${esc(S._wiz.mission || '')}</textarea></div>
+      <div><label class="text-xs text-gray-500">当前进展 / 正在寻找（公开主页）</label><textarea rows="2" placeholder="例如：已做 3 场活动，正在找场地与首批共建伙伴" oninput="S._wiz.progress=this.value">${esc(S._wiz.progress || '')}</textarea></div>
+      <div><label class="text-xs text-gray-500">希望别人怎样帮助（公开主页）</label><input value="${esc(S._wiz.publicNeed || '')}" placeholder="例如：招募志愿者、提供场地、寻找合作方" oninput="S._wiz.publicNeed=this.value"></div>
       <div><label class="text-xs text-gray-500">关键词（逗号分隔，供其他用户发现）</label><input value="${esc(S._wiz.keywords)}" placeholder="社区,协作" oninput="S._wiz.keywords=this.value"></div>
       <div><label class="text-xs text-gray-500">常驻城市 / 基地</label><div class="flex gap-2"><input value="${esc(S._wiz.baseLocation)}" placeholder="如：株洲·万丰湖（不填具体门牌）" oninput="S._wiz.baseLocation=this.value"><button type="button" class="tab-btn text-xs flex-shrink-0" onclick="baseGeoUse()">标记当前位置</button></div><p id="wiz-base-geo" class="text-[10px] text-gray-400 mt-1">用于附近推荐和活动地点默认值；单场活动可另改具体公园、楼栋或线上地点。</p></div>
     </div>`;
@@ -506,7 +509,7 @@ async function createOrg() {
   const brand = bpExport('wiz');
   try {
     const { id } = await api('POST', '/api/orgs', {
-      name: w.name, slug: w.slug, intro: w.intro, suitable_for: w.suitableFor, keywords: w.keywords, base_location: w.baseLocation, base_lat: w.baseLat, base_lng: w.baseLng,
+      name: w.name, slug: w.slug, intro: w.intro, mission: w.mission, progress: w.progress, public_need: w.publicNeed, suitable_for: w.suitableFor, keywords: w.keywords, base_location: w.baseLocation, base_lat: w.baseLat, base_lng: w.baseLng,
       theme_color: brand.primary, currency_name: w.currency || '猫粮', logo_url: w.logo || '', brand,
       owner_nickname: (w.ownerNick || '').trim() || undefined, demo: S.demoMode && !!w.demo, with_tasks: !!w.template,
     });
@@ -533,7 +536,7 @@ function bossBrand() {
   if (!S._br || S._br._orgId !== S.org.id) {
     let b = null;
     try { b = S.org.brand ? JSON.parse(S.org.brand) : null; } catch { b = null; }
-    S._br = { _orgId: S.org.id, paletteKey: (b && b.key) || 'custom', primary: (b && b.primary) || S.org.theme_color || '#F97C2F', brandName: (b && b.name) || '自定义', logo: S.org.logo_url || null, currency: S.org.currency_name, intro: S.org.intro || '', keywords: S.org.keywords || '' };
+    S._br = { _orgId: S.org.id, paletteKey: (b && b.key) || 'custom', primary: (b && b.primary) || S.org.theme_color || '#F97C2F', brandName: (b && b.name) || '自定义', logo: S.org.logo_url || null, currency: S.org.currency_name, intro: S.org.intro || '', mission: S.org.mission || '', progress: S.org.progress || '', publicNeed: S.org.public_need || '', keywords: S.org.keywords || '' };
     S._br.pname = S.org.name;
   }
   /* 企业认证花标：联想式工商核验（真实接入企查查等 API 后全自动） */
@@ -575,6 +578,9 @@ function bossBrand() {
       <div><label class="text-xs text-gray-500">积分名称</label><input value="${esc(S._br.currency)}" oninput="S._br.currency=this.value"></div>
       <div><label class="text-xs text-gray-500">关键词（逗号分隔）</label><input value="${esc(S._br.keywords)}" oninput="S._br.keywords=this.value"></div>
       <div><label class="text-xs text-gray-500">一句话介绍</label><input value="${esc(S._br.intro)}" oninput="S._br.intro=this.value" class="md:col-span-2"></div>
+      <div class="md:col-span-2"><label class="text-xs text-gray-500">核心目标（公开主页）</label><textarea rows="2" maxlength="500" oninput="S._br.mission=this.value" placeholder="我们想长期解决什么问题？">${esc(S._br.mission)}</textarea></div>
+      <div><label class="text-xs text-gray-500">当前进展（公开主页）</label><textarea rows="2" maxlength="500" oninput="S._br.progress=this.value" placeholder="已经做成了什么、下一步是什么？">${esc(S._br.progress)}</textarea></div>
+      <div><label class="text-xs text-gray-500">正在寻找（公开主页）</label><textarea rows="2" maxlength="500" oninput="S._br.publicNeed=this.value" placeholder="希望谁以什么方式参与或提供帮助？">${esc(S._br.publicNeed)}</textarea></div>
     </div>
     <button class="cat-secondary w-full py-2.5 rounded-xl mt-4" onclick="saveBrand()">保存组织信息</button>
   </div>`;
@@ -592,7 +598,7 @@ async function saveBrand() {
     const brand = bpExport('br');
     const st = S._br;
     await api('PUT', `/api/orgs/${S.org.id}/brand`, {
-      brand, logo_url: st.logo || '', currency_name: st.currency, intro: st.intro, keywords: st.keywords,
+      brand, logo_url: st.logo || '', currency_name: st.currency, intro: st.intro, mission: st.mission, progress: st.progress, public_need: st.publicNeed, keywords: st.keywords,
     });
     const d = await api('GET', `/api/orgs/${S.org.id}`);
     S.org = d.org; S.orgRole = d.role;
@@ -873,6 +879,9 @@ async function openOrgPreview(orgId) {
     </div>
     <p class="text-sm text-gray-600 mb-2">${esc(o.intro || '这个社区还没有介绍。')}</p>
     <p class="text-xs text-gray-500 mb-3"><b>适合谁：</b>${esc(o.suitable_for || '暂未说明')}</p>
+    ${o.mission || o.progress || o.public_need ? `<dl class="task-agreement mb-3">${o.mission ? `<dt>想长期解决</dt><dd>${esc(o.mission)}</dd>` : ''}${o.progress ? `<dt>现在进展</dt><dd>${esc(o.progress)}</dd>` : ''}${o.public_need ? `<dt>正在寻找</dt><dd>${esc(o.public_need)}</dd>` : ''}</dl>` : ''}
+    <div class="grid grid-cols-2 gap-2 mb-3"><div class="bg-gray-50 rounded-xl px-3 py-2 text-xs text-gray-500">已举办 <b class="text-gray-800">${d.activity_count}</b> 场活动</div><div class="bg-gray-50 rounded-xl px-3 py-2 text-xs text-gray-500">已确认 <b class="text-gray-800">${d.confirmed_output_count}</b> 条成果</div></div>
+    ${d.public_results.length ? `<div class="text-xs font-semibold text-gray-500 mb-1.5">公开成果 / 资料</div><div class="space-y-1.5 mb-3">${d.public_results.map(r => `<div class="bg-gray-50 rounded-xl px-3 py-2"><b class="text-sm text-gray-800">${esc(r.title)}</b>${r.summary ? `<p class="text-[11px] text-gray-500 mt-0.5">${esc(r.summary)}</p>` : ''}${r.url ? `<a class="text-[11px] underline c-primary" target="_blank" rel="noopener noreferrer" href="${esc(r.url)}">查看公开成果</a>` : ''}</div>`).join('')}</div>` : ''}
     ${d.open_activities.length ? `<div class="text-xs font-semibold text-gray-500 mb-1.5">开放招募中的活动</div>
       <div class="space-y-1.5 mb-3 max-h-48 overflow-y-auto">${d.open_activities.map(a => `
         <div class="flex items-center justify-between bg-gray-50 rounded-xl px-3 py-2">
